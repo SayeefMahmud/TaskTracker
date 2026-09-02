@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/task_provider.dart';
 import 'providers/theme_provider.dart';
-import 'theme.dart';
+import 'theme/doto_theme.dart';
 import 'screens/main_wrapper.dart';
 
 void main() {
@@ -46,7 +46,7 @@ class _DoToAppState extends State<DoToApp> {
     } catch (e, stack) {
       debugPrint('Initialization error: $e\n$stack');
       setState(() {
-        _error = e.toString() + "\n\n" + stack.toString();
+        _error = '$e\n\n$stack';
       });
     }
   }
@@ -55,23 +55,34 @@ class _DoToAppState extends State<DoToApp> {
   Widget build(BuildContext context) {
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
+        final isDark = themeProvider.isDark;
         return MaterialApp(
           title: 'DoTo',
-          theme: AppThemes.lightTheme,
-          darkTheme: AppThemes.darkTheme,
+          debugShowCheckedModeBanner: false,
+          theme: dotoTheme(dark: false),
+          darkTheme: dotoTheme(dark: true),
           themeMode: themeProvider.themeMode,
-          home: _error != null 
-            ? Scaffold(
-                body: SafeArea(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Text('Startup Error:\n$_error', style: const TextStyle(color: Colors.red)),
+          builder: (context, child) {
+            return AnimatedTheme(
+              data: dotoTheme(dark: isDark),
+              duration: DotoMotion.theme,
+              curve: DotoMotion.curve,
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
+          home: _error != null
+              ? Scaffold(
+                  body: SafeArea(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Text('Startup Error:\n$_error',
+                          style: const TextStyle(color: Colors.red)),
+                    ),
                   ),
-                ),
-              )
-            : !_initialized 
-              ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-              : const MainWrapper(),
+                )
+              : !_initialized
+                  ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+                  : const MainWrapper(),
         );
       },
     );

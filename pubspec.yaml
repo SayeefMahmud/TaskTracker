@@ -44,6 +44,7 @@ dependencies:
   uuid: ^4.6.0
   home_widget: 0.9.3
   fl_chart: 0.69.0
+  google_fonts: ^6.2.1
 
 dev_dependencies:
   integration_test:

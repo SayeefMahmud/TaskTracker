@@ -85,7 +85,7 @@ class Task extends HiveObject {
   @HiveField(9)
   DateTime? completedAt;
 
-  @HiveField(10, defaultValue: const [])
+  @HiveField(10, defaultValue: [])
   List<Subtask> subtasks;
   
   @HiveField(11)
