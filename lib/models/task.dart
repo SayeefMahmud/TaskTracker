@@ -1,0 +1,64 @@
+import 'package:hive/hive.dart';
+import 'package:uuid/uuid.dart';
+
+part 'task.g.dart';
+
+@HiveType(typeId: 1)
+enum TaskPriority {
+  @HiveField(0)
+  low,
+  @HiveField(1)
+  medium,
+  @HiveField(2)
+  high,
+}
+
+@HiveType(typeId: 2)
+class TaskCategory {
+  @HiveField(0)
+  final String id;
+  @HiveField(1)
+  final String name;
+  @HiveField(2)
+  final int colorHex;
+
+  TaskCategory({required this.id, required this.name, required this.colorHex});
+}
+
+@HiveType(typeId: 0)
+class Task extends HiveObject {
+  @HiveField(0)
+  final String id;
+
+  @HiveField(1)
+  String title;
+
+  @HiveField(2)
+  String? description;
+
+  @HiveField(3)
+  DateTime? scheduledTime;
+
+  @HiveField(4)
+  bool isCompleted;
+
+  @HiveField(5)
+  TaskPriority priority;
+
+  @HiveField(6)
+  List<String> categoryIds;
+
+  @HiveField(7)
+  int? notificationId;
+
+  Task({
+    String? id,
+    required this.title,
+    this.description,
+    this.scheduledTime,
+    this.isCompleted = false,
+    this.priority = TaskPriority.medium,
+    this.categoryIds = const [],
+    this.notificationId,
+  }) : id = id ?? const Uuid().v4();
+}
