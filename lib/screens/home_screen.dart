@@ -252,14 +252,94 @@ class NeoTaskTile extends StatelessWidget {
     }
   }
 
+  void _showSubtasksSheet(BuildContext context, TaskProvider provider) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppThemes.neoWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        side: BorderSide(color: AppThemes.neoBlack, width: 3),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setStateSheet) {
+            return Container(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Subtasks: ${task.title}',
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: task.subtasks.length,
+                      itemBuilder: (context, index) {
+                        final sub = task.subtasks[index];
+                        return GestureDetector(
+                          onTap: () {
+                            setStateSheet(() {
+                              sub.isCompleted = !sub.isCompleted;
+                            });
+                            provider.updateTask(task);
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: sub.isCompleted ? AppThemes.neoMint : Colors.white,
+                              border: Border.all(color: AppThemes.neoBlack, width: 2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  sub.isCompleted ? Icons.check_box : Icons.check_box_outline_blank,
+                                  color: AppThemes.neoBlack,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    sub.title,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      decoration: sub.isCompleted ? TextDecoration.lineThrough : null,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<TaskProvider>(context, listen: false);
+    final completedSubtasks = task.subtasks.where((s) => s.isCompleted).length;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: GestureDetector(
-        onTap: () => provider.toggleTaskCompletion(task),
+        onTap: () {
+          if (task.subtasks.isNotEmpty) {
+            _showSubtasksSheet(context, provider);
+          } else {
+            provider.toggleTaskCompletion(task);
+          }
+        },
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -345,6 +425,18 @@ class NeoTaskTile extends StatelessWidget {
                               : AppThemes.neoBlack,
                           bold: true,
                         ),
+                        if (task.subtasks.isNotEmpty)
+                          _NeoChip(
+                            label: '$completedSubtasks/${task.subtasks.length} Sub',
+                            bgColor: Colors.white,
+                            bold: true,
+                          ),
+                        if (task.recurrence != TaskRecurrence.none)
+                          _NeoChip(
+                            label: '🔁 ${task.recurrence.name.toUpperCase()}',
+                            bgColor: Colors.white,
+                            bold: true,
+                          ),
                       ],
                     ),
                   ],

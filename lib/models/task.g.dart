@@ -46,6 +46,46 @@ class TaskCategoryAdapter extends TypeAdapter<TaskCategory> {
           typeId == other.typeId;
 }
 
+class SubtaskAdapter extends TypeAdapter<Subtask> {
+  @override
+  final int typeId = 4;
+
+  @override
+  Subtask read(BinaryReader reader) {
+    final numOfFields = reader.readByte();
+    final fields = <int, dynamic>{
+      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return Subtask(
+      id: fields[0] as String?,
+      title: fields[1] as String,
+      isCompleted: fields[2] as bool,
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, Subtask obj) {
+    writer
+      ..writeByte(3)
+      ..writeByte(0)
+      ..write(obj.id)
+      ..writeByte(1)
+      ..write(obj.title)
+      ..writeByte(2)
+      ..write(obj.isCompleted);
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SubtaskAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
 class TaskAdapter extends TypeAdapter<Task> {
   @override
   final int typeId = 0;
@@ -65,13 +105,18 @@ class TaskAdapter extends TypeAdapter<Task> {
       priority: fields[5] as TaskPriority,
       categoryIds: (fields[6] as List).cast<String>(),
       notificationId: fields[7] as int?,
+      recurrence:
+          fields[8] == null ? TaskRecurrence.none : fields[8] as TaskRecurrence,
+      completedAt: fields[9] as DateTime?,
+      subtasks: fields[10] == null ? [] : (fields[10] as List).cast<Subtask>(),
+      nextRecurrenceId: fields[11] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Task obj) {
     writer
-      ..writeByte(8)
+      ..writeByte(12)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -87,7 +132,15 @@ class TaskAdapter extends TypeAdapter<Task> {
       ..writeByte(6)
       ..write(obj.categoryIds)
       ..writeByte(7)
-      ..write(obj.notificationId);
+      ..write(obj.notificationId)
+      ..writeByte(8)
+      ..write(obj.recurrence)
+      ..writeByte(9)
+      ..write(obj.completedAt)
+      ..writeByte(10)
+      ..write(obj.subtasks)
+      ..writeByte(11)
+      ..write(obj.nextRecurrenceId);
   }
 
   @override
@@ -141,6 +194,55 @@ class TaskPriorityAdapter extends TypeAdapter<TaskPriority> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is TaskPriorityAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class TaskRecurrenceAdapter extends TypeAdapter<TaskRecurrence> {
+  @override
+  final int typeId = 3;
+
+  @override
+  TaskRecurrence read(BinaryReader reader) {
+    switch (reader.readByte()) {
+      case 0:
+        return TaskRecurrence.none;
+      case 1:
+        return TaskRecurrence.daily;
+      case 2:
+        return TaskRecurrence.weekly;
+      case 3:
+        return TaskRecurrence.monthly;
+      default:
+        return TaskRecurrence.none;
+    }
+  }
+
+  @override
+  void write(BinaryWriter writer, TaskRecurrence obj) {
+    switch (obj) {
+      case TaskRecurrence.none:
+        writer.writeByte(0);
+        break;
+      case TaskRecurrence.daily:
+        writer.writeByte(1);
+        break;
+      case TaskRecurrence.weekly:
+        writer.writeByte(2);
+        break;
+      case TaskRecurrence.monthly:
+        writer.writeByte(3);
+        break;
+    }
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TaskRecurrenceAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

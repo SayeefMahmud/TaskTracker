@@ -25,6 +25,34 @@ class TaskCategory {
   TaskCategory({required this.id, required this.name, required this.colorHex});
 }
 
+@HiveType(typeId: 3)
+enum TaskRecurrence {
+  @HiveField(0)
+  none,
+  @HiveField(1)
+  daily,
+  @HiveField(2)
+  weekly,
+  @HiveField(3)
+  monthly,
+}
+
+@HiveType(typeId: 4)
+class Subtask {
+  @HiveField(0)
+  final String id;
+  @HiveField(1)
+  String title;
+  @HiveField(2)
+  bool isCompleted;
+
+  Subtask({
+    String? id,
+    required this.title,
+    this.isCompleted = false,
+  }) : id = id ?? const Uuid().v4();
+}
+
 @HiveType(typeId: 0)
 class Task extends HiveObject {
   @HiveField(0)
@@ -51,6 +79,18 @@ class Task extends HiveObject {
   @HiveField(7)
   int? notificationId;
 
+  @HiveField(8, defaultValue: TaskRecurrence.none)
+  TaskRecurrence recurrence;
+
+  @HiveField(9)
+  DateTime? completedAt;
+
+  @HiveField(10, defaultValue: const [])
+  List<Subtask> subtasks;
+  
+  @HiveField(11)
+  String? nextRecurrenceId;
+
   Task({
     String? id,
     required this.title,
@@ -60,5 +100,9 @@ class Task extends HiveObject {
     this.priority = TaskPriority.medium,
     this.categoryIds = const [],
     this.notificationId,
+    this.recurrence = TaskRecurrence.none,
+    this.completedAt,
+    this.subtasks = const [],
+    this.nextRecurrenceId,
   }) : id = id ?? const Uuid().v4();
 }

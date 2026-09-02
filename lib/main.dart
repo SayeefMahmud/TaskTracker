@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'providers/task_provider.dart';
 import 'providers/theme_provider.dart';
 import 'theme.dart';
-import 'screens/home_screen.dart';
+import 'screens/main_wrapper.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -71,7 +71,7 @@ class _DoToAppState extends State<DoToApp> {
               )
             : !_initialized 
               ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-              : const HomeScreen(),
+              : const MainWrapper(),
         );
       },
     );
