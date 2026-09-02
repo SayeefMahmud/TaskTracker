@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../providers/task_provider.dart';
 import '../models/task.dart';
 import '../theme.dart';
+import '../utils/duration_formatter.dart';
 
 class AddTaskScreen extends StatefulWidget {
   const AddTaskScreen({super.key});
@@ -17,6 +18,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   final _descController = TextEditingController();
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
+  int? _selectedDuration;
   TaskPriority _priority = TaskPriority.medium;
   TaskRecurrence _recurrence = TaskRecurrence.none;
   
@@ -142,6 +144,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                   children: [
                     if (_selectedDate != null && _selectedTime != null)
                       _NeoChip(label: '⏰ ${DateFormat('MMM d').format(_selectedDate!)}, ${_selectedTime!.format(context)}'),
+                    if (_selectedDuration != null && _selectedDuration! > 0)
+                      _NeoChip(label: '⏳ ${formatDuration(_selectedDuration)}'),
                     _NeoChip(
                       label: _priority.name.toUpperCase(),
                       bgColor: _priority == TaskPriority.high ? AppThemes.neoRed : Colors.white,
@@ -241,6 +245,24 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           ),
           const SizedBox(height: 16),
 
+          // Duration selector
+          const Text('Duration', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppThemes.neoBlack)),
+          const SizedBox(height: 10),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildDurationChip(null, 'None'),
+                _buildDurationChip(15, '15m'),
+                _buildDurationChip(30, '30m'),
+                _buildDurationChip(60, '1h'),
+                _buildDurationChip(120, '2h'),
+                _buildDurationCustomChip(),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
           // Priority selector
           const Text('Priority', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppThemes.neoBlack)),
           const SizedBox(height: 10),
@@ -328,12 +350,13 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
               final task = Task(
                 title: _titleController.text.trim(),
-                description: _descController.text.trim(),
+                description: _descController.text.trim().isEmpty ? null : _descController.text.trim(),
                 scheduledTime: scheduledTime,
                 priority: _priority,
                 recurrence: _recurrence,
                 subtasks: validSubtasks,
                 categoryIds: _selectedCategoryIds,
+                durationMinutes: (_selectedDuration != null && _selectedDuration! > 0) ? _selectedDuration : null,
               );
 
               Provider.of<TaskProvider>(context, listen: false).addTask(task);
@@ -360,6 +383,98 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildDurationChip(int? duration, String label) {
+    final isSelected = _selectedDuration == duration;
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedDuration = duration),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? AppThemes.neoBlack : Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppThemes.neoBlack, width: 2.5),
+            boxShadow: isSelected ? const [BoxShadow(color: Color(0xFF888888), offset: Offset(3, 3), blurRadius: 0)] : [],
+          ),
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: isSelected ? Colors.white : AppThemes.neoBlack, letterSpacing: 0.5),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDurationCustomChip() {
+    final isCustom = _selectedDuration != null && ![null, 15, 30, 60, 120].contains(_selectedDuration);
+    final label = isCustom ? formatDuration(_selectedDuration)! : 'Custom';
+    
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: GestureDetector(
+        onTap: () async {
+          final custom = await _showCustomDurationDialog();
+          if (custom != null) {
+            setState(() => _selectedDuration = custom);
+          }
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          decoration: BoxDecoration(
+            color: isCustom ? AppThemes.neoBlack : Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppThemes.neoBlack, width: 2.5),
+            boxShadow: isCustom ? const [BoxShadow(color: Color(0xFF888888), offset: Offset(3, 3), blurRadius: 0)] : [],
+          ),
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: isCustom ? Colors.white : AppThemes.neoBlack, letterSpacing: 0.5),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<int?> _showCustomDurationDialog() async {
+    int? result;
+    final controller = TextEditingController(text: _selectedDuration?.toString() ?? '');
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppThemes.neoWhite,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(color: AppThemes.neoBlack, width: 3),
+          ),
+          title: const Text('Custom Duration (min)', style: TextStyle(fontWeight: FontWeight.w900)),
+          content: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            decoration: _neoInputDecoration('Minutes'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CANCEL', style: TextStyle(color: AppThemes.neoBlack, fontWeight: FontWeight.w800)),
+            ),
+            TextButton(
+              onPressed: () {
+                result = int.tryParse(controller.text.trim());
+                Navigator.pop(context);
+              },
+              child: const Text('OK', style: TextStyle(color: AppThemes.neoBlack, fontWeight: FontWeight.w800)),
+            ),
+          ],
+        );
+      },
+    );
+    return result;
   }
 }
 

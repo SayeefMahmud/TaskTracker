@@ -91,6 +91,9 @@ class Task extends HiveObject {
   @HiveField(11)
   String? nextRecurrenceId;
 
+  @HiveField(12)
+  int? durationMinutes;
+
   Task({
     String? id,
     required this.title,
@@ -104,5 +107,7 @@ class Task extends HiveObject {
     this.completedAt,
     this.subtasks = const [],
     this.nextRecurrenceId,
+    this.durationMinutes,
   }) : id = id ?? const Uuid().v4();
 }
+

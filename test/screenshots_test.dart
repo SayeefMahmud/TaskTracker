@@ -24,7 +24,7 @@ class MockTaskProvider extends ChangeNotifier implements TaskProvider {
   @override
   List<Task> get pendingTasks => [
     Task(title: 'Buy groceries', priority: TaskPriority.high, categoryIds: ['1']),
-    Task(title: 'Call mom', priority: TaskPriority.medium, categoryIds: ['2']),
+    Task(title: 'Call mom', priority: TaskPriority.medium, categoryIds: ['2'], durationMinutes: 90),
   ];
   
   @override

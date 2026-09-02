@@ -139,6 +139,7 @@ class TaskProvider with ChangeNotifier {
           categoryIds: List.from(task.categoryIds),
           recurrence: task.recurrence,
           subtasks: task.subtasks.map((s) => Subtask(title: s.title, isCompleted: false)).toList(),
+          durationMinutes: task.durationMinutes,
         );
         
         task.nextRecurrenceId = clone.id;

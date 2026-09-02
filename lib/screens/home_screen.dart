@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../providers/task_provider.dart';
 import '../models/task.dart';
 import '../theme.dart';
+import '../utils/duration_formatter.dart';
 import 'settings_screen.dart';
 import 'add_task_screen.dart';
 
@@ -414,6 +415,18 @@ class NeoTaskTile extends StatelessWidget {
                             label: '⏰ ${DateFormat('MMM d, h:mm a').format(task.scheduledTime!)}',
                             bgColor: Colors.white,
                             bold: false,
+                          ),
+                        if (task.durationMinutes != null && task.durationMinutes! > 0)
+                          Semantics(
+                            label: 'Duration: ${formatDuration(task.durationMinutes)}',
+                            child: Tooltip(
+                              message: 'Estimated duration',
+                              child: _NeoChip(
+                                label: '⏳ ${formatDuration(task.durationMinutes)}',
+                                bgColor: Colors.white,
+                                bold: false,
+                              ),
+                            ),
                           ),
                         _NeoChip(
                           label: task.priority.name.toUpperCase(),
