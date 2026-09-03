@@ -1,14 +1,12 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
-import 'package:intl/intl.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:workmanager/workmanager.dart';
 import '../models/task.dart';
 import '../theme/doto_theme.dart';
-import '../utils/duration_formatter.dart';
 import 'database_service.dart';
 
 @pragma('vm:entry-point')
@@ -48,7 +46,7 @@ void callbackDispatcher() {
 
       if (todayTasks.isNotEmpty) {
         final notificationsPlugin = FlutterLocalNotificationsPlugin();
-        const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+        const androidInit = AndroidInitializationSettings('ic_notification');
         const iosInit = DarwinInitializationSettings();
         const initSettings = InitializationSettings(
           android: androidInit, 
@@ -59,13 +57,14 @@ void callbackDispatcher() {
 
         await notificationsPlugin.show(
           id: 1001,
-          title: 'Your Daily Summary',
-          body: 'You have  tasks scheduled for today.',
+          title: 'Daily Summary',
+          body: 'You have ${todayTasks.length} tasks scheduled for today.',
           notificationDetails: const NotificationDetails(
             android: AndroidNotificationDetails(
               'daily_summary_channel',
               'Daily Summary',
               importance: Importance.high,
+              icon: 'ic_notification',
             ),
             iOS: DarwinNotificationDetails(),
             macOS: DarwinNotificationDetails(),
@@ -109,7 +108,7 @@ class NotificationService {
     }
 
     const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('ic_notification');
 
     final List<DarwinNotificationCategory> darwinNotificationCategories = <DarwinNotificationCategory>[
       DarwinNotificationCategory(
@@ -117,7 +116,7 @@ class NotificationService {
         actions: <DarwinNotificationAction>[
           DarwinNotificationAction.plain(
             'mark_completed',
-            '✓ Mark Completed',
+            'Mark Completed',
             options: <DarwinNotificationActionOption>{
               DarwinNotificationActionOption.destructive,
             },
@@ -214,7 +213,7 @@ class NotificationService {
         ),
       );
     } catch (e) {
-      debugPrint('Workmanager scheduling failed: ');
+      debugPrint('Workmanager scheduling failed: $e');
     }
   }
 
@@ -223,7 +222,7 @@ class NotificationService {
     try {
       await Workmanager().cancelByUniqueName('daily_summary_periodic');
     } catch (e) {
-      debugPrint('Workmanager cancellation failed: ');
+      debugPrint('Workmanager cancellation failed: $e');
     }
   }
 
@@ -236,29 +235,6 @@ class NotificationService {
     return scheduled.difference(now);
   }
 
-  String _getCategoryName(Task task) {
-    if (task.categoryIds.isNotEmpty) {
-      final cat = task.categoryIds.first.trim();
-      if (cat.isNotEmpty) {
-        return cat[0].toUpperCase() + (cat.length > 1 ? cat.substring(1) : '');
-      }
-    }
-    return 'Work';
-  }
-
-  String _formatRepeat(TaskRecurrence r) {
-    switch (r) {
-      case TaskRecurrence.daily:
-        return 'Daily';
-      case TaskRecurrence.weekly:
-        return 'Weekly';
-      case TaskRecurrence.monthly:
-        return 'Monthly';
-      case TaskRecurrence.none:
-        return '';
-    }
-  }
-
   Future<void> scheduleTaskNotification(Task task) async {
     if (task.priority != TaskPriority.high || task.isCompleted || task.scheduledTime == null) {
       await cancelTaskNotification(task.id);
@@ -269,63 +245,16 @@ class NotificationService {
       await init();
     }
 
-    const highPriorityChannelId = 'high_priority_tasks_channel';
+    const highPriorityChannelId = 'doto_high_priority_sticky_tasks';
     const highPriorityChannelName = 'High Priority Tasks';
     const highPriorityChannelDesc = 'Persistent alerts for high priority scheduled tasks';
-
-    final categoryName = _getCategoryName(task);
-    final timeStr = DateFormat('EEEE, MMM d · HH:mm').format(task.scheduledTime!);
-    final durationStr = task.durationMinutes != null && task.durationMinutes! > 0
-        ? formatDuration(task.durationMinutes)
-        : null;
-    final repeatStr = task.recurrence != TaskRecurrence.none ? _formatRepeat(task.recurrence) : null;
-
-    final detailsList = <String>[];
-    detailsList.add('📁 Category: $categoryName');
-    detailsList.add('⏰ Time: $timeStr');
-    if (durationStr != null) {
-      detailsList.add('⏱ Duration: $durationStr');
-    }
-    if (repeatStr != null) {
-      detailsList.add('🔁 Repeats: $repeatStr');
-    }
-
-    if (task.subtasks.isNotEmpty) {
-      final done = task.subtasks.where((s) => s.isCompleted).length;
-      final total = task.subtasks.length;
-      final displayedSubtasks = task.subtasks.take(6).map((s) {
-        final check = s.isCompleted ? '[✓]' : '[  ]';
-        return '  $check ${s.title}';
-      }).join('\n');
-      final moreCount = total - 6;
-      final overflow = moreCount > 0 ? '\n  ...and $moreCount more' : '';
-      detailsList.add('📋 Subtasks ($done/$total):\n$displayedSubtasks$overflow');
-    }
-
-    if (task.description != null && task.description!.trim().isNotEmpty) {
-      detailsList.add('📝 Note: ${task.description!.trim()}');
-    }
-
-    detailsList.add('📌 Stays active until marked completed.');
-
-    final expandedDetails = detailsList.join('\n\n');
-    final collapsedBody = '$categoryName • $timeStr${durationStr != null ? ' ($durationStr)' : ''}';
-
-    final bigTextStyleInformation = BigTextStyleInformation(
-      expandedDetails,
-      htmlFormatBigText: false,
-      contentTitle: '🔴 HIGH PRIORITY: ${task.title}',
-      htmlFormatContentTitle: false,
-      summaryText: '$categoryName • DoTo',
-      htmlFormatSummaryText: false,
-    );
 
     final androidPlatformChannelSpecifics = AndroidNotificationDetails(
       highPriorityChannelId,
       highPriorityChannelName,
       channelDescription: highPriorityChannelDesc,
-      importance: Importance.high,
-      priority: Priority.high,
+      importance: Importance.max,
+      priority: Priority.max,
       ongoing: true,
       autoCancel: false,
       color: DotoSemantic.priorityHigh,
@@ -336,23 +265,24 @@ class NotificationService {
       enableVibration: true,
       playSound: true,
       onlyAlertOnce: true,
+      icon: 'ic_notification',
       category: AndroidNotificationCategory.reminder,
-      styleInformation: bigTextStyleInformation,
+      visibility: NotificationVisibility.public,
       actions: <AndroidNotificationAction>[
         const AndroidNotificationAction(
           'mark_completed',
-          '✓ Mark Completed',
+          'Mark Completed',
           showsUserInterface: false,
           cancelNotification: true,
         ),
       ],
     );
 
-    final iOSPlatformChannelSpecifics = DarwinNotificationDetails(
+    final iOSPlatformChannelSpecifics = const DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
-      subtitle: '$categoryName • High Priority',
+      subtitle: 'High Priority',
       threadIdentifier: 'doto_high_priority_tasks',
       categoryIdentifier: 'high_priority_task_actions',
     );
@@ -370,8 +300,8 @@ class NotificationService {
       try {
         await flutterLocalNotificationsPlugin.zonedSchedule(
           id: notifId,
-          title: '🔴 ${task.title}',
-          body: collapsedBody,
+          title: task.title,
+          body: null,
           scheduledDate: scheduledDate,
           notificationDetails: platformChannelSpecifics,
           payload: task.id,
@@ -381,8 +311,8 @@ class NotificationService {
         debugPrint('Exact alarm scheduling failed/not allowed, falling back to inexact: $e');
         await flutterLocalNotificationsPlugin.zonedSchedule(
           id: notifId,
-          title: '🔴 ${task.title}',
-          body: collapsedBody,
+          title: task.title,
+          body: null,
           scheduledDate: scheduledDate,
           notificationDetails: platformChannelSpecifics,
           payload: task.id,
@@ -393,8 +323,8 @@ class NotificationService {
       // Designated time has already passed / reached and task is still high-priority & pending
       await flutterLocalNotificationsPlugin.show(
         id: notifId,
-        title: '🔴 ${task.title}',
-        body: collapsedBody,
+        title: task.title,
+        body: null,
         notificationDetails: platformChannelSpecifics,
         payload: task.id,
       );
