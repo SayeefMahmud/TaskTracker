@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>DoTo — Spatial Glass & Notification Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-light: #F4F6F9;
+    --card-light: rgba(255, 255, 255, 0.75);
+    --card-border-light: rgba(255, 255, 255, 0.8);
+    --text-primary-light: #1A1D23;
+    --text-secondary-light: #64748B;
+    
+    --bg-dark: #0F1218;
+    --card-dark: rgba(26, 31, 44, 0.65);
+    --card-border-dark: rgba(255, 255, 255, 0.08);
+    --text-primary-dark: #F8FAFC;
+    --text-secondary-dark: #94A3B8;
+
+    --priority-high: #C25E3D;
+    --priority-high-bg: rgba(194, 94, 61, 0.15);
+    --cat-work: #004081;
+    --cat-personal: #00A9DC;
+    --cat-health: #57A11F;
+    --cat-home: #F5C842;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background: #0B0E14;
+    color: #F8FAFC;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+  }
+
+  /* App Container (Phone Shell) */
+  .phone-container {
+    width: 100%;
+    max-width: 420px;
+    height: 100vh;
+    max-height: 900px;
+    background: var(--bg-dark);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+  }
+
+  @media (min-width: 480px) {
+    .phone-container {
+      height: 880px;
+      border-radius: 40px;
+      border: 6px solid #1E232F;
+    }
+  }
+
+  /* Dynamic Blur Backdrop Gradient */
+  .bg-blobs {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+
+  .blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: 0.35;
+    transition: all 0.5s ease;
+  }
+
+  .blob-1 {
+    width: 250px;
+    height: 250px;
+    background: #C25E3D;
+    top: -50px;
+    right: -50px;
+  }
+
+  .blob-2 {
+    width: 280px;
+    height: 280px;
+    background: #004081;
+    bottom: 50px;
+    left: -80px;
+  }
+
+  /* Status Bar */
+  .status-bar {
+    position: relative;
+    z-index: 20;
+    height: 44px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 24px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary-dark);
+  }
+
+  .status-icons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 11px;
+  }
+
+  /* Notification Drawer Trigger Pill */
+  .notif-trigger-pill {
+    position: relative;
+    z-index: 20;
+    background: rgba(194, 94, 61, 0.2);
+    border: 1px solid rgba(194, 94, 61, 0.4);
+    color: #FFA585;
+    margin: 4px 20px 8px;
+    padding: 8px 16px;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    backdrop-filter: blur(12px);
+    transition: transform 0.2s, background 0.2s;
+  }
+
+  .notif-trigger-pill:active {
+    transform: scale(0.98);
+  }
+
+  /* Android Notification Overlay */
+  .notification-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(8, 10, 15, 0.88);
+    backdrop-filter: blur(24px);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    padding: 16px 20px;
+    transform: translateY(-100%);
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .notification-overlay.open {
+    transform: translateY(0);
+  }
+
+  .shade-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 24px;
+    margin-bottom: 20px;
+  }
+
+  .shade-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary-dark);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .shade-clear-btn {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.25);
+  }
+
+  /* Sticky Notification Card */
+  .sticky-notif-card {
+    background: rgba(30, 36, 50, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 16px 18px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+    position: relative;
+    user-select: none;
+    transition: transform 0.2s;
+  }
+
+  .notif-app-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .notif-badge {
+    width: 20px;
+    height: 20px;
+    background: var(--priority-high);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .notif-badge svg {
+    width: 12px;
+    height: 12px;
+    fill: white;
+  }
+
+  .notif-app-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: #CBD5E1;
+  }
+
+  .notif-time {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--text-secondary-dark);
+  }
+
+  .notif-task-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 14px;
+    line-height: 1.3;
+  }
+
+  .notif-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(194, 94, 61, 0.18);
+    border: 1px solid rgba(194, 94, 61, 0.45);
+    color: #FFA585;
+    padding: 9px 16px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .notif-action-btn:active {
+    transform: scale(0.96);
+    background: rgba(194, 94, 61, 0.35);
+  }
+
+  .shade-handle {
+    width: 48px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    margin: 20px auto 0;
+    cursor: pointer;
+  }
+
+  /* App Header */
+  .app-header {
+    position: relative;
+    z-index: 10;
+    padding: 8px 24px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .app-title-group h1 {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--text-primary-dark);
+  }
+
+  .app-title-group p {
+    font-size: 13px;
+    color: var(--text-secondary-dark);
+    font-weight: 500;
+  }
+
+  .streak-badge {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 6px 12px;
+    border-radius: 14px;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    backdrop-filter: blur(10px);
+  }
+
+  /* Category Pills */
+  .categories-scroll {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    gap: 8px;
+    padding: 0 24px 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .categories-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .cat-pill {
+    padding: 8px 16px;
+    border-radius: 14px;
+    font-size: 13px;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--text-secondary-dark);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+
+  .cat-pill.active {
+    background: white;
+    color: #0F1218;
+    border-color: white;
+  }
+
+  /* Main Task List */
+  .tasks-container {
+    position: relative;
+    z-index: 10;
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 24px 90px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .section-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-secondary-dark);
+    margin: 8px 0 2px;
+  }
+
+  /* Task Card */
+  .task-card {
+    background: var(--card-dark);
+    border: 1px solid var(--card-border-dark);
+    border-radius: 20px;
+    padding: 16px;
+    backdrop-filter: blur(16px);
+    transition: all 0.25s ease;
+  }
+
+  .task-card.high-priority {
+    border-left: 4px solid var(--priority-high);
+  }
+
+  .task-main-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .doto-checkbox {
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-top: 2px;
+    transition: all 0.2s;
+  }
+
+  .doto-checkbox.checked {
+    background: #57A11F;
+    border-color: #57A11F;
+  }
+
+  .doto-checkbox.checked svg {
+    display: block;
+  }
+
+  .doto-checkbox svg {
+    width: 14px;
+    height: 14px;
+    fill: white;
+    display: none;
+  }
+
+  .task-content {
+    flex: 1;
+  }
+
+  .task-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary-dark);
+    margin-bottom: 4px;
+    line-height: 1.3;
+  }
+
+  .task-title.done {
+    text-decoration: line-through;
+    color: var(--text-secondary-dark);
+  }
+
+  .task-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-secondary-dark);
+    flex-wrap: wrap;
+  }
+
+  .meta-tag {
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .tag-priority-high {
+    background: var(--priority-high-bg);
+    color: #FFA585;
+  }
+
+  .tag-work {
+    background: rgba(0, 64, 129, 0.2);
+    color: #60A5FA;
+  }
+
+  /* Floating Bottom Nav */
+  .bottom-nav {
+    position: absolute;
+    bottom: 20px;
+    left: 24px;
+    right: 24px;
+    height: 64px;
+    background: rgba(22, 27, 38, 0.75);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 28px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    z-index: 30;
+    padding: 0 10px;
+  }
+
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: var(--text-secondary-dark);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: 16px;
+    transition: all 0.2s;
+  }
+
+  .nav-item.active {
+    color: white;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .nav-item svg {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+  }
+
+  .add-fab {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #C25E3D, #E87A56);
+    border-radius: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    box-shadow: 0 8px 20px rgba(194, 94, 61, 0.45);
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+
+  .add-fab:active {
+    transform: scale(0.92);
+  }
+</style>
+</head>
+<body>
+
+<div class="phone-container">
+  <!-- Dynamic Blobs -->
+  <div class="bg-blobs">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+  </div>
+
+  <!-- Android Status Bar -->
+  <div class="status-bar">
+    <span>16:30</span>
+    <div class="status-icons">
+      <span>5G</span>
+      <span>100%</span>
+    </div>
+  </div>
+
+  <!-- Notification Drawer Pill -->
+  <div class="notif-trigger-pill" onclick="toggleNotificationDrawer(true)">
+    <span>🔔 1 Sticky Alert Active</span>
+    <span>Pull Down ▾</span>
+  </div>
+
+  <!-- Android Notification Drawer Overlay -->
+  <div class="notification-overlay" id="notifOverlay">
+    <div class="shade-header">
+      <span class="shade-title">Sticky Notifications</span>
+      <span class="shade-clear-btn">Clear all</span>
+    </div>
+
+    <!-- Pinned Notification -->
+    <div class="sticky-notif-card" id="stickyCard">
+      <div class="notif-app-row">
+        <div class="notif-badge">
+          <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+        </div>
+        <span class="notif-app-name">DoTo • High Priority Tasks</span>
+        <span class="notif-time">now • Persistent</span>
+      </div>
+      <div class="notif-task-title" id="notifTaskTitle">Ship the auth refactor</div>
+      <button class="notif-action-btn" onclick="completeTaskFromNotification()">
+        <svg style="width:14px;height:14px;fill:currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+        Mark Completed
+      </button>
+    </div>
+
+    <div class="shade-handle" onclick="toggleNotificationDrawer(false)"></div>
+  </div>
+
+  <!-- App Header -->
+  <div class="app-header">
+    <div class="app-title-group">
+      <h1>Today</h1>
+      <p>Thursday, September 3</p>
+    </div>
+    <div class="streak-badge">
+      🔥 <span id="streakCount">12</span>d
+    </div>
+  </div>
+
+  <!-- Category Pills -->
+  <div class="categories-scroll">
+    <div class="cat-pill active" onclick="filterCat(this, 'all')">All</div>
+    <div class="cat-pill" onclick="filterCat(this, 'work')">Work</div>
+    <div class="cat-pill" onclick="filterCat(this, 'personal')">Personal</div>
+    <div class="cat-pill" onclick="filterCat(this, 'health')">Health</div>
+    <div class="cat-pill" onclick="filterCat(this, 'home')">Home</div>
+  </div>
+
+  <!-- Tasks Container -->
+  <div class="tasks-container" id="tasksList">
+    <div class="section-label">Pending</div>
+
+    <!-- High Priority Task -->
+    <div class="task-card high-priority" id="task-1">
+      <div class="task-main-row">
+        <div class="doto-checkbox" id="chk-1" onclick="toggleTask('task-1')">
+          <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+        </div>
+        <div class="task-content">
+          <div class="task-title" id="title-1">Ship the auth refactor</div>
+          <div class="task-meta-row">
+            <span class="meta-tag tag-priority-high">High Priority</span>
+            <span class="meta-tag tag-work">Work</span>
+            <span>⏰ 16:30</span>
+            <span>⏱ 2h</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Medium Task -->
+    <div class="task-card" id="task-2">
+      <div class="task-main-row">
+        <div class="doto-checkbox" id="chk-2" onclick="toggleTask('task-2')">
+          <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+        </div>
+        <div class="task-content">
+          <div class="task-title" id="title-2">Review the Oslo proposal</div>
+          <div class="task-meta-row">
+            <span class="meta-tag tag-work">Work</span>
+            <span>⏰ 18:00</span>
+            <span>⏱ 45m</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-top:16px;">Completed (<span id="doneCount">0</span>)</div>
+    <div id="completedList"></div>
+  </div>
+
+  <!-- Bottom Floating Nav -->
+  <div class="bottom-nav">
+    <div class="nav-item active">
+      <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+      Tasks
+    </div>
+    <div class="add-fab" onclick="addNewDemoTask()">
+      <svg style="width:24px;height:24px;fill:white" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+    </div>
+    <div class="nav-item" onclick="alert('Stats: 88% completion rate, 12 day active streak!')">
+      <svg viewBox="0 0 24 24"><path d="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z"/></svg>
+      Insights
+    </div>
+  </div>
+</div>
+
+<script>
+  let completed = 0;
+
+  function toggleNotificationDrawer(open) {
+    const overlay = document.getElementById('notifOverlay');
+    if (open) {
+      overlay.classList.add('open');
+    } else {
+      overlay.classList.remove('open');
+    }
+  }
+
+  function completeTaskFromNotification() {
+    toggleTask('task-1');
+    toggleNotificationDrawer(false);
+    
+    // Hide trigger pill
+    const pill = document.querySelector('.notif-trigger-pill');
+    if (pill) {
+      pill.style.display = 'none';
+    }
+  }
+
+  function toggleTask(id) {
+    const card = document.getElementById(id);
+    const chk = card.querySelector('.doto-checkbox');
+    const title = card.querySelector('.task-title');
+    const completedList = document.getElementById('completedList');
+
+    if (!chk.classList.contains('checked')) {
+      chk.classList.add('checked');
+      title.classList.add('done');
+      completed++;
+      document.getElementById('doneCount').innerText = completed;
+
+      // Move to completed
+      setTimeout(() => {
+        completedList.appendChild(card);
+      }, 300);
+    } else {
+      chk.classList.remove('checked');
+      title.classList.remove('done');
+      completed--;
+      document.getElementById('doneCount').innerText = completed;
+      document.getElementById('tasksList').insertBefore(card, document.getElementById('task-2'));
+    }
+  }
+
+  function filterCat(elem, cat) {
+    document.querySelectorAll('.cat-pill').forEach(p => p.classList.remove('active'));
+    elem.classList.add('active');
+  }
+
+  function addNewDemoTask() {
+    alert('Task Created: High-priority task with sticky notification scheduled.');
+  }
+</script>
+</body>
+</html>

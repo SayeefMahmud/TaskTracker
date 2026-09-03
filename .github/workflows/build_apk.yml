@@ -1,0 +1,61 @@
+﻿name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build Type'
+        required: true
+        default: 'release'
+        type: choice
+        options:
+          - release
+          - debug
+      split_per_abi:
+        description: 'Split APKs per ABI (smaller per-architecture APKs)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  build-apk:
+    name: Build APK (${{ inputs.build_type }})
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Set up Java (JDK 17)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        run: |
+          BUILD_CMD="flutter build apk --${{ inputs.build_type }}"
+          if [ "${{ inputs.split_per_abi }}" = "true" ]; then
+            BUILD_CMD="$BUILD_CMD --split-per-abi"
+          fi
+          echo "Executing: $BUILD_CMD"
+          eval $BUILD_CMD
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: doto-${{ inputs.build_type }}-apk
+          path: build/app/outputs/flutter-apk/*.apk
+          retention-days: 14
