@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/notification_service.dart';
 
 class ThemeProvider with ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.light;
@@ -17,6 +18,11 @@ class ThemeProvider with ChangeNotifier {
 
   void toggleStreakReminders(bool value) {
     _streakReminders = value;
+    if (_streakReminders) {
+      NotificationService().scheduleDailySummaryTask();
+    } else {
+      NotificationService().cancelDailySummaryTask();
+    }
     notifyListeners();
   }
 

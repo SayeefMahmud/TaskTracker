@@ -1,5 +1,6 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:intl/intl.dart';
 import '../models/task.dart';
@@ -10,6 +11,7 @@ import '../services/notification_service.dart';
 class TaskProvider with ChangeNotifier {
   final DatabaseService _db = DatabaseService();
   final NotificationService _notifications = NotificationService();
+  AppLifecycleListener? _lifecycleListener;
 
   List<Task> _tasks = [];
   List<TaskCategory> _categories = [];
@@ -69,8 +71,25 @@ class TaskProvider with ChangeNotifier {
   }
 
   Future<void> init() async {
+    _lifecycleListener?.dispose();
+    _lifecycleListener = AppLifecycleListener(
+      onResume: () {
+        _tasks = _db.getTasks();
+        _updateWidget();
+        notifyListeners();
+      },
+    );
+
     await _db.init();
     await _notifications.init();
+
+    // Listen for notification action triggers (e.g. Mark Completed from notification shade)
+    NotificationService.taskCompletedFromNotification.removeListener(_onNotificationTaskCompleted);
+    NotificationService.taskCompletedFromNotification.addListener(_onNotificationTaskCompleted);
+
+    // Listen for notification body clicks to navigate / focus specific task
+    NotificationService.selectedTaskIdFromNotification.removeListener(_onNotificationTaskSelected);
+    NotificationService.selectedTaskIdFromNotification.addListener(_onNotificationTaskSelected);
 
     _tasks = _db.getTasks();
     _categories = _db.getCategories();
@@ -82,15 +101,47 @@ class TaskProvider with ChangeNotifier {
       await addCategory(TaskCategory(id: 'home', name: 'Home', colorHex: 0xFFF5C842));
     }
 
+    // Ensure all high priority tasks have active/scheduled notifications and others are cleared
+    for (final task in _tasks) {
+      if (task.priority == TaskPriority.high && !task.isCompleted && task.scheduledTime != null) {
+        await _notifications.scheduleTaskNotification(task);
+      } else {
+        await _notifications.cancelTaskNotification(task.id);
+      }
+    }
+
     _updateWidget();
     notifyListeners();
+  }
+
+  void _onNotificationTaskCompleted() {
+    _tasks = _db.getTasks();
+    _updateWidget();
+    notifyListeners();
+  }
+
+  void _onNotificationTaskSelected() {
+    final taskId = NotificationService.selectedTaskIdFromNotification.value;
+    if (taskId != null) {
+      _expandedTaskId = taskId;
+      _selectedCategory = 'all';
+      notifyListeners();
+    }
+  }
+
+  @override
+  void dispose() {
+    _lifecycleListener?.dispose();
+    NotificationService.taskCompletedFromNotification.removeListener(_onNotificationTaskCompleted);
+    NotificationService.selectedTaskIdFromNotification.removeListener(_onNotificationTaskSelected);
+    super.dispose();
   }
 
   Future<void> addTask(Task task) async {
     await _db.addTask(task);
     _tasks.insert(0, task);
 
-    if (task.scheduledTime != null) {
+    if (task.priority == TaskPriority.high && !task.isCompleted && task.scheduledTime != null) {
       await _notifications.scheduleTaskNotification(task);
     }
 
@@ -106,9 +157,10 @@ class TaskProvider with ChangeNotifier {
       _tasks[index] = task;
     }
 
-    await _notifications.cancelTaskNotification(task.id);
-    if (task.scheduledTime != null && !task.isCompleted) {
+    if (task.priority == TaskPriority.high && !task.isCompleted && task.scheduledTime != null) {
       await _notifications.scheduleTaskNotification(task);
+    } else {
+      await _notifications.cancelTaskNotification(task.id);
     }
 
     _updateWidget();
@@ -117,13 +169,6 @@ class TaskProvider with ChangeNotifier {
 
   String _getTodayKey() {
     return DateFormat('yyyy-MM-dd').format(DateTime.now());
-  }
-
-  Future<void> _incrementStats() async {
-    final key = _getTodayKey();
-    final stats = _db.getDailyStats(key);
-    stats.completedCount += 1;
-    await _db.saveDailyStats(stats);
   }
 
   Future<void> _decrementStats() async {
@@ -137,58 +182,12 @@ class TaskProvider with ChangeNotifier {
 
   Future<void> toggleTaskCompletion(Task task) async {
     if (!task.isCompleted) {
-      task.isCompleted = true;
-      task.completedAt = DateTime.now();
-
-      // Complete all subtasks
-      for (var sub in task.subtasks) {
-        sub.isCompleted = true;
-      }
-
-      await _incrementStats();
-
-      // Recurring task lifecycle
-      if (task.recurrence != TaskRecurrence.none && task.nextRecurrenceId == null) {
-        DateTime? nextScheduled = task.scheduledTime ?? DateTime.now();
-        switch (task.recurrence) {
-          case TaskRecurrence.daily:
-            nextScheduled = nextScheduled.add(const Duration(days: 1));
-            break;
-          case TaskRecurrence.weekly:
-            nextScheduled = nextScheduled.add(const Duration(days: 7));
-            break;
-          case TaskRecurrence.monthly:
-            int nextMonth = nextScheduled.month + 1;
-            int nextYear = nextScheduled.year;
-            if (nextMonth > 12) {
-              nextMonth = 1;
-              nextYear++;
-            }
-            int daysInNextMonth = DateTime(nextYear, nextMonth + 1, 0).day;
-            int nextDay = nextScheduled.day > daysInNextMonth ? daysInNextMonth : nextScheduled.day;
-            nextScheduled = DateTime(nextYear, nextMonth, nextDay, nextScheduled.hour, nextScheduled.minute);
-            break;
-          default:
-            break;
-        }
-
-        final clone = Task(
-          title: task.title,
-          description: task.description,
-          scheduledTime: nextScheduled,
-          priority: task.priority,
-          categoryIds: List.from(task.categoryIds),
-          recurrence: task.recurrence,
-          subtasks: task.subtasks.map((s) => Subtask(title: s.title, isCompleted: false)).toList(),
-          durationMinutes: task.durationMinutes,
-        );
-
-        task.nextRecurrenceId = clone.id;
-        await _db.addTask(clone);
-        _tasks.insert(0, clone);
-
-        if (clone.scheduledTime != null) {
-          await _notifications.scheduleTaskNotification(clone);
+      await _notifications.cancelTaskNotification(task.id);
+      final nextTask = await _db.markTaskCompletedById(task.id);
+      if (nextTask != null) {
+        _tasks.insert(0, nextTask);
+        if (nextTask.scheduledTime != null && nextTask.priority == TaskPriority.high) {
+          await _notifications.scheduleTaskNotification(nextTask);
         }
       }
     } else {
@@ -203,9 +202,16 @@ class TaskProvider with ChangeNotifier {
         await deleteTask(task.nextRecurrenceId!);
         task.nextRecurrenceId = null;
       }
+
+      await _db.updateTask(task);
+      if (task.priority == TaskPriority.high && task.scheduledTime != null) {
+        await _notifications.scheduleTaskNotification(task);
+      }
     }
 
-    await updateTask(task);
+    _tasks = _db.getTasks();
+    _updateWidget();
+    notifyListeners();
   }
 
   Future<void> toggleSubtask(Task task, Subtask subtask) async {
@@ -331,7 +337,7 @@ class TaskProvider with ChangeNotifier {
         await HomeWidget.saveWidgetData<String>('pending_tasks', jsonEncode(topTasks));
         await HomeWidget.updateWidget(name: 'DoToWidgetProvider', iOSName: 'DoToWidget');
       } catch (e) {
-        debugPrint('Failed to update widget: $e');
+        debugPrint('Failed to update widget: ');
       }
     }
   }
