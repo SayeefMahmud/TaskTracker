@@ -1,4 +1,4 @@
-﻿name: Build Android APK
+name: Build Android APK
 
 on:
   workflow_dispatch:
@@ -16,6 +16,19 @@ on:
         required: false
         default: false
         type: boolean
+      create_release:
+        description: 'Publish to GitHub Releases (public download link without login for public repos)'
+        required: false
+        default: true
+        type: boolean
+      tag_name:
+        description: 'Release Tag (leave empty for automatic build-NUMBER tag)'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: write
 
 jobs:
   build-apk:
@@ -53,9 +66,64 @@ jobs:
           echo "Executing: $BUILD_CMD"
           eval $BUILD_CMD
 
-      - name: Upload APK artifact
+      # 1. Internal GitHub Artifact (Requires login to download, kept for backup / CI tracking)
+      - name: Upload APK artifact (Internal)
         uses: actions/upload-artifact@v4
         with:
           name: doto-${{ inputs.build_type }}-apk
           path: build/app/outputs/flutter-apk/*.apk
           retention-days: 14
+
+      # 2. GitHub Release (Publicly downloadable without GitHub login if repository is public)
+      - name: Determine Release Tag
+        id: release_info
+        if: ${{ inputs.create_release }}
+        run: |
+          if [ -n "${{ inputs.tag_name }}" ]; then
+            TAG="${{ inputs.tag_name }}"
+          else
+            TAG="build-${{ github.run_number }}"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Publish GitHub Release
+        if: ${{ inputs.create_release }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_info.outputs.tag }}
+          name: "TaskTracker ${{ inputs.build_type }} (${{ steps.release_info.outputs.tag }})"
+          body: |
+            ### TaskTracker Android APK (${{ inputs.build_type }})
+            - **Commit**: ${{ github.sha }}
+            - **Branch/Ref**: ${{ github.ref_name }}
+            - **Workflow Run**: [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+            Download the APK file directly below without needing to log in.
+          files: build/app/outputs/flutter-apk/*.apk
+          draft: false
+          prerelease: ${{ inputs.build_type == 'debug' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 3. Google Drive Upload (Optional: triggers if GDRIVE secrets are set in repository)
+      - name: Upload to Google Drive
+        if: env.GDRIVE_CREDENTIALS != '' && env.GDRIVE_FOLDER_ID != ''
+        uses: adityak74/google-drive-upload-git-action@main
+        with:
+          credentials: ${{ secrets.GDRIVE_CREDENTIALS_DATA }}
+          folderId: ${{ secrets.GDRIVE_FOLDER_ID }}
+          filename: build/app/outputs/flutter-apk/*.apk
+          overwrite: "false"
+        env:
+          GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS_DATA }}
+          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+
+      # 4. Print Summary with direct links
+      - name: Generate Job Summary
+        run: |
+          echo "### 🚀 APK Build Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ inputs.create_release }}" = "true" ]; then
+            echo "- 📦 **Public GitHub Release Download:** [View Release and Download APK](${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ steps.release_info.outputs.tag }})" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "- 📁 **Internal Artifact:** Available in the Artifacts section above (requires GitHub login)." >> $GITHUB_STEP_SUMMARY
