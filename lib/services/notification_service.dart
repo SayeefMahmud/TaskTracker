@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:isolate';
+import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
@@ -14,14 +16,19 @@ void notificationTapBackground(NotificationResponse notificationResponse) async 
   if (notificationResponse.actionId == 'mark_completed') {
     final taskId = notificationResponse.payload;
     if (taskId != null && taskId.isNotEmpty) {
-      final db = DatabaseService();
-      await db.init();
-      final nextTask = await db.markTaskCompletedById(taskId);
-      final notifications = NotificationService();
-      await notifications.init();
-      await notifications.cancelTaskNotification(taskId);
-      if (nextTask != null && nextTask.priority == TaskPriority.high && nextTask.scheduledTime != null) {
-        await notifications.scheduleTaskNotification(nextTask);
+      final SendPort? uiSendPort = IsolateNameServer.lookupPortByName('doto_notification_action_port');
+      if (uiSendPort != null) {
+        uiSendPort.send(taskId);
+      } else {
+        final db = DatabaseService();
+        await db.init();
+        final nextTask = await db.markTaskCompletedById(taskId);
+        final notifications = NotificationService();
+        await notifications.init();
+        await notifications.cancelTaskNotification(taskId);
+        if (nextTask != null && nextTask.priority == TaskPriority.high && nextTask.scheduledTime != null) {
+          await notifications.scheduleTaskNotification(nextTask);
+        }
       }
     }
   }
@@ -253,7 +260,7 @@ class NotificationService {
       await init();
     }
 
-    const highPriorityChannelId = 'doto_high_priority_sticky_tasks';
+    const highPriorityChannelId = 'doto_high_priority_sticky_v2';
     const highPriorityChannelName = 'High Priority Tasks';
     const highPriorityChannelDesc = 'Persistent alerts for high priority scheduled tasks';
 
@@ -265,6 +272,7 @@ class NotificationService {
       priority: Priority.max,
       ongoing: true,
       autoCancel: false,
+      additionalFlags: Int32List.fromList([32, 2]),
       color: DotoSemantic.priorityHigh,
       ledColor: DotoSemantic.priorityHigh,
       ledOnMs: 1000,

@@ -165,23 +165,197 @@ void main() {
     await loadAppFonts();
   });
 
-  testWidgets('Screenshot HomeScreen', (WidgetTester tester) async {
-    await tester.pumpWidget(createScreen(const HomeScreen()));
-    await tester.pumpAndSettle();
+  testGoldens('Screenshot HomeScreen', (WidgetTester tester) async {
+    await tester.pumpWidgetBuilder(createScreen(const HomeScreen()), surfaceSize: const Size(393, 852));
+    await screenMatchesGolden(tester, 'home_screen');
   });
 
-  testWidgets('Screenshot AddTaskScreen', (WidgetTester tester) async {
-    await tester.pumpWidget(createScreen(const AddTaskScreen()));
-    await tester.pumpAndSettle();
+  testGoldens('Screenshot AddTaskScreen', (WidgetTester tester) async {
+    await tester.pumpWidgetBuilder(createScreen(const AddTaskScreen()), surfaceSize: const Size(393, 852));
+    await screenMatchesGolden(tester, 'add_task_screen');
   });
 
-  testWidgets('Screenshot SettingsScreen', (WidgetTester tester) async {
-    await tester.pumpWidget(createScreen(const SettingsScreen()));
-    await tester.pumpAndSettle();
+  testGoldens('Screenshot EditTaskScreen', (WidgetTester tester) async {
+    final task = Task(
+      id: 'task-edit-demo',
+      title: 'Ship the auth refactor',
+      description: 'Split session handling out of the gateway',
+      priority: TaskPriority.high,
+      categoryIds: ['work'],
+      scheduledTime: DateTime(2026, 9, 3, 14, 30),
+      subtasks: [
+        Subtask(title: 'Isolate token parser', isCompleted: true),
+        Subtask(title: 'Write session tests', isCompleted: false),
+        Subtask(title: 'Deploy gateway proxy', isCompleted: false),
+      ],
+    );
+    await tester.pumpWidgetBuilder(createScreen(AddTaskScreen(taskToEdit: task)), surfaceSize: const Size(393, 852));
+    await screenMatchesGolden(tester, 'edit_task_screen');
   });
 
-  testWidgets('Screenshot StatsScreen', (WidgetTester tester) async {
-    await tester.pumpWidget(createScreen(const StatsScreen()));
-    await tester.pumpAndSettle();
+  testGoldens('Screenshot SettingsScreen', (WidgetTester tester) async {
+    await tester.pumpWidgetBuilder(createScreen(const SettingsScreen()), surfaceSize: const Size(393, 852));
+    await screenMatchesGolden(tester, 'settings_screen');
   });
+
+  testGoldens('Screenshot StatsScreen', (WidgetTester tester) async {
+    await tester.pumpWidgetBuilder(createScreen(const StatsScreen()), surfaceSize: const Size(393, 852));
+    await screenMatchesGolden(tester, 'stats_screen');
+  });
+
+  testGoldens('Screenshot AddTaskScreen ExactTime', (WidgetTester tester) async {
+    await tester.pumpWidgetBuilder(createScreen(const AddTaskScreen()), surfaceSize: const Size(393, 852));
+    await tester.tap(find.text('Exact time'));
+    await tester.pumpAndSettle();
+    await screenMatchesGolden(tester, 'add_task_exact_time');
+  });
+
+  testGoldens('Screenshot NotificationShade', (WidgetTester tester) async {
+    await tester.pumpWidgetBuilder(const NotificationShadePreview(), surfaceSize: const Size(393, 852));
+    await screenMatchesGolden(tester, 'notification_shade');
+  });
+}
+
+class NotificationShadePreview extends StatelessWidget {
+  const NotificationShadePreview({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: const Color(0xFF0B1120),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Android status bar
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('14:30', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
+                    Row(
+                      children: const [
+                        Icon(Icons.wifi, color: Colors.white, size: 16),
+                        SizedBox(width: 8),
+                        Icon(Icons.signal_cellular_4_bar, color: Colors.white, size: 16),
+                        SizedBox(width: 8),
+                        Icon(Icons.battery_full, color: Colors.white, size: 16),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 28),
+                // Section Header
+                Row(
+                  children: const [
+                    Text('NOTIFICATIONS', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                    Spacer(),
+                    Text('Clear all', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Persistent Sticky Notification Card
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: const Color(0xFFC25E3D).withValues(alpha: 0.5), width: 1.5),
+                    boxShadow: [
+                      BoxShadow(color: const Color(0xFFC25E3D).withValues(alpha: 0.2), blurRadius: 24, offset: const Offset(0, 8)),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // App Header Line
+                      Row(
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Color(0xFFC25E3D),
+                            ),
+                            child: const Icon(Icons.check, size: 15, color: Colors.white),
+                          ),
+                          const SizedBox(width: 10),
+                          const Text('DoTo', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                          const SizedBox(width: 8),
+                          const Text('• now', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFC25E3D).withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFFC25E3D), width: 1),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.push_pin, size: 10, color: Color(0xFFC25E3D)),
+                                SizedBox(width: 4),
+                                Text('STICKY · HIGH PRIORITY', style: TextStyle(color: Color(0xFFC25E3D), fontSize: 10, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      // Title & Description
+                      const Text(
+                        'Ship the auth refactor',
+                        style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Split session handling out of the gateway · Due Today 14:30',
+                        style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13.5, height: 1.4),
+                      ),
+                      const SizedBox(height: 18),
+                      // Action buttons in notification shade
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF57A11F).withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: const Color(0xFF57A11F), width: 1.2),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.check_circle_outline, size: 16, color: Color(0xFF57A11F)),
+                                SizedBox(width: 8),
+                                Text('Mark Completed', style: TextStyle(color: Color(0xFF57A11F), fontSize: 13, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF334155),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Text('Open App', style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 13)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

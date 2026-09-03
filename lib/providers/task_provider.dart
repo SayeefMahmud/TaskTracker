@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:isolate';
+import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:home_widget/home_widget.dart';
@@ -12,6 +14,7 @@ class TaskProvider with ChangeNotifier {
   final DatabaseService _db = DatabaseService();
   final NotificationService _notifications = NotificationService();
   AppLifecycleListener? _lifecycleListener;
+  ReceivePort? _actionPort;
 
   List<Task> _tasks = [];
   List<TaskCategory> _categories = [];
@@ -73,12 +76,36 @@ class TaskProvider with ChangeNotifier {
   Future<void> init() async {
     _lifecycleListener?.dispose();
     _lifecycleListener = AppLifecycleListener(
-      onResume: () {
+      onResume: () async {
         _tasks = _db.getTasks();
+        for (final task in _tasks) {
+          if (task.priority == TaskPriority.high && !task.isCompleted && task.scheduledTime != null) {
+            try {
+              await _notifications.scheduleTaskNotification(task);
+            } catch (_) {}
+          }
+        }
         _updateWidget();
         notifyListeners();
       },
     );
+
+    _actionPort?.close();
+    _actionPort = ReceivePort();
+    IsolateNameServer.removePortNameMapping('doto_notification_action_port');
+    IsolateNameServer.registerPortWithName(_actionPort!.sendPort, 'doto_notification_action_port');
+    _actionPort!.listen((message) async {
+      if (message is String) {
+        final task = _tasks.where((t) => t.id == message).firstOrNull;
+        if (task != null && !task.isCompleted) {
+          await toggleTaskCompletion(task);
+        } else {
+          _tasks = _db.getTasks();
+          _updateWidget();
+          notifyListeners();
+        }
+      }
+    });
 
     await _db.init();
 
@@ -141,6 +168,8 @@ class TaskProvider with ChangeNotifier {
   @override
   void dispose() {
     _lifecycleListener?.dispose();
+    IsolateNameServer.removePortNameMapping('doto_notification_action_port');
+    _actionPort?.close();
     NotificationService.taskCompletedFromNotification.removeListener(_onNotificationTaskCompleted);
     NotificationService.selectedTaskIdFromNotification.removeListener(_onNotificationTaskSelected);
     super.dispose();

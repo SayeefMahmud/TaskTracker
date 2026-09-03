@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../models/task.dart';
 import '../providers/task_provider.dart';
+import '../screens/add_task_screen.dart';
 import '../theme/doto_theme.dart';
 import '../utils/duration_formatter.dart';
 import 'doto_checkbox.dart';
@@ -23,6 +24,18 @@ class TaskCard extends StatefulWidget {
 
 class _TaskCardState extends State<TaskCard> with SingleTickerProviderStateMixin {
   bool _isDeletePressed = false;
+
+  void _openEditTask(BuildContext context) {
+    if (!widget.task.isCompleted) {
+      HapticFeedback.selectionClick();
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AddTaskScreen(taskToEdit: widget.task),
+        ),
+      );
+    }
+  }
 
   Color _getCategoryColor(String? catName) {
     switch (catName?.toLowerCase()) {
@@ -91,64 +104,74 @@ class _TaskCardState extends State<TaskCard> with SingleTickerProviderStateMixin
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Meta Line (Category + Repeat Cadence)
-                  Row(
-                    children: [
-                      Container(
-                        width: 7,
-                        height: 7,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: categoryColor,
+                  // Clickable Header & Title & Description (triggers Edit Task if pending)
+                  GestureDetector(
+                    onTap: () => _openEditTask(context),
+                    behavior: HitTestBehavior.opaque,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Meta Line (Category + Repeat Cadence)
+                        Row(
+                          children: [
+                            Container(
+                              width: 7,
+                              height: 7,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: categoryColor,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              primaryCategory.toUpperCase(),
+                              style: DotoText.categoryLabel.copyWith(
+                                color: c.muted,
+                              ),
+                            ),
+                            if (task.recurrence != TaskRecurrence.none) ...[
+                              const SizedBox(width: 8),
+                              Icon(
+                                Icons.repeat_rounded,
+                                size: 12,
+                                color: c.muted,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _formatRepeat(task.recurrence),
+                                style: DotoText.categoryLabel.copyWith(
+                                  color: c.muted,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        primaryCategory.toUpperCase(),
-                        style: DotoText.categoryLabel.copyWith(
-                          color: c.muted,
-                        ),
-                      ),
-                      if (task.recurrence != TaskRecurrence.none) ...[
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.repeat_rounded,
-                          size: 12,
-                          color: c.muted,
-                        ),
-                        const SizedBox(width: 4),
+                        const SizedBox(height: 6),
+
+                        // Title
                         Text(
-                          _formatRepeat(task.recurrence),
-                          style: DotoText.categoryLabel.copyWith(
-                            color: c.muted,
-                            fontWeight: FontWeight.w600,
+                          task.title,
+                          style: DotoText.cardTitle.copyWith(
+                            color: task.isCompleted ? c.fg.withValues(alpha: 0.5) : c.fg,
+                            decoration: task.isCompleted ? TextDecoration.lineThrough : null,
+                            decorationColor: c.fg.withValues(alpha: 0.5),
                           ),
                         ),
+
+                        // Optional description
+                        if (task.description != null && task.description!.trim().isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            task.description!,
+                            style: DotoText.body.copyWith(
+                              color: c.muted,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-
-                  // Title
-                  Text(
-                    task.title,
-                    style: DotoText.cardTitle.copyWith(
-                      color: task.isCompleted ? c.fg.withValues(alpha: 0.5) : c.fg,
-                      decoration: task.isCompleted ? TextDecoration.lineThrough : null,
-                      decorationColor: c.fg.withValues(alpha: 0.5),
                     ),
                   ),
-
-                  // Optional description
-                  if (task.description != null && task.description!.trim().isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      task.description!,
-                      style: DotoText.body.copyWith(
-                        color: c.muted,
-                      ),
-                    ),
-                  ],
 
                   // Subtask progress row
                   if (totalSubtasks > 0) ...[
@@ -229,13 +252,19 @@ class _TaskCardState extends State<TaskCard> with SingleTickerProviderStateMixin
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
-                                    child: Text(
-                                      sub.title,
-                                      style: DotoText.body.copyWith(
-                                        fontSize: 13.5,
-                                        color: sub.isCompleted ? c.fg.withValues(alpha: 0.5) : c.fg,
-                                        decoration: sub.isCompleted ? TextDecoration.lineThrough : null,
-                                        decorationColor: c.fg.withValues(alpha: 0.5),
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        provider.toggleSubtask(task, sub);
+                                      },
+                                      behavior: HitTestBehavior.opaque,
+                                      child: Text(
+                                        sub.title,
+                                        style: DotoText.body.copyWith(
+                                          fontSize: 13.5,
+                                          color: sub.isCompleted ? c.fg.withValues(alpha: 0.5) : c.fg,
+                                          decoration: sub.isCompleted ? TextDecoration.lineThrough : null,
+                                          decorationColor: c.fg.withValues(alpha: 0.5),
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -250,63 +279,67 @@ class _TaskCardState extends State<TaskCard> with SingleTickerProviderStateMixin
                     ),
                   ],
 
-                  // Chips row
+                  // Chips row (also triggers Edit Task if pending)
                   const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 7,
-                    runSpacing: 6,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      // Due chip
-                      if (task.scheduledTime != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: c.field,
-                            borderRadius: BorderRadius.circular(DotoRadius.pill),
-                            border: Border.all(color: c.edge, width: 1),
+                  GestureDetector(
+                    onTap: () => _openEditTask(context),
+                    behavior: HitTestBehavior.opaque,
+                    child: Wrap(
+                      spacing: 7,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        // Due chip
+                        if (task.scheduledTime != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: c.field,
+                              borderRadius: BorderRadius.circular(DotoRadius.pill),
+                              border: Border.all(color: c.edge, width: 1),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.access_time_rounded, size: 12, color: c.muted),
+                                const SizedBox(width: 5),
+                                Text(
+                                  DateFormat('EEE d MMM · HH:mm').format(task.scheduledTime!),
+                                  style: DotoText.metaChip.copyWith(color: c.fg),
+                                ),
+                              ],
+                            ),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.access_time_rounded, size: 12, color: c.muted),
-                              const SizedBox(width: 5),
-                              Text(
-                                DateFormat('EEE d MMM · HH:mm').format(task.scheduledTime!),
-                                style: DotoText.metaChip.copyWith(color: c.fg),
-                              ),
-                            ],
-                          ),
-                        ),
 
-                      // Duration chip
-                      if (task.durationMinutes != null && task.durationMinutes! > 0)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: c.field,
-                            borderRadius: BorderRadius.circular(DotoRadius.pill),
-                            border: Border.all(color: c.edge, width: 1),
+                        // Duration chip
+                        if (task.durationMinutes != null && task.durationMinutes! > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: c.field,
+                              borderRadius: BorderRadius.circular(DotoRadius.pill),
+                              border: Border.all(color: c.edge, width: 1),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.equalizer_rounded, size: 12, color: c.muted),
+                                const SizedBox(width: 5),
+                                Text(
+                                  formatDuration(task.durationMinutes) ?? '',
+                                  style: DotoText.metaChip.copyWith(color: c.fg),
+                                ),
+                              ],
+                            ),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.equalizer_rounded, size: 12, color: c.muted),
-                              const SizedBox(width: 5),
-                              Text(
-                                formatDuration(task.durationMinutes) ?? '',
-                                style: DotoText.metaChip.copyWith(color: c.fg),
-                              ),
-                            ],
-                          ),
-                        ),
 
-                      // Priority chip
-                      PriorityChipWidget(
-                        priority: task.priority,
-                        isSelected: false,
-                      ),
-                    ],
+                        // Priority chip
+                        PriorityChipWidget(
+                          priority: task.priority,
+                          isSelected: false,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
