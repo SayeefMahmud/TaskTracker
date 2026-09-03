@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
@@ -46,30 +46,34 @@ void callbackDispatcher() {
 
       if (todayTasks.isNotEmpty) {
         final notificationsPlugin = FlutterLocalNotificationsPlugin();
-        const androidInit = AndroidInitializationSettings('ic_notification');
+        const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
         const iosInit = DarwinInitializationSettings();
         const initSettings = InitializationSettings(
           android: androidInit, 
           iOS: iosInit,
           macOS: iosInit,
         );
-        await notificationsPlugin.initialize(settings: initSettings);
+        try {
+          await notificationsPlugin.initialize(settings: initSettings);
 
-        await notificationsPlugin.show(
-          id: 1001,
-          title: 'Daily Summary',
-          body: 'You have ${todayTasks.length} tasks scheduled for today.',
-          notificationDetails: const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'daily_summary_channel',
-              'Daily Summary',
-              importance: Importance.high,
-              icon: 'ic_notification',
+          await notificationsPlugin.show(
+            id: 1001,
+            title: 'Daily Summary',
+            body: 'You have ${todayTasks.length} tasks scheduled for today.',
+            notificationDetails: const NotificationDetails(
+              android: AndroidNotificationDetails(
+                'daily_summary_channel',
+                'Daily Summary',
+                importance: Importance.high,
+                icon: '@mipmap/ic_launcher',
+              ),
+              iOS: DarwinNotificationDetails(),
+              macOS: DarwinNotificationDetails(),
             ),
-            iOS: DarwinNotificationDetails(),
-            macOS: DarwinNotificationDetails(),
-          ),
-        );
+          );
+        } catch (e) {
+          debugPrint('Daily summary notification error: $e');
+        }
       }
     }
     return Future.value(true);
@@ -97,76 +101,80 @@ class NotificationService {
 
   Future<void> init() async {
     if (_isInitialized) return;
-    tz.initializeTimeZones();
-
     try {
-      final timezoneInfo = await FlutterTimezone.getLocalTimezone();
-      final timeZoneName = timezoneInfo.identifier;
-      tz.setLocalLocation(tz.getLocation(timeZoneName));
-    } catch (e) {
-      debugPrint('Could not fetch device timezone, using default: $e');
-    }
+      tz.initializeTimeZones();
 
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('ic_notification');
+      try {
+        final timezoneInfo = await FlutterTimezone.getLocalTimezone();
+        final timeZoneName = timezoneInfo.identifier;
+        tz.setLocalLocation(tz.getLocation(timeZoneName));
+      } catch (e) {
+        debugPrint('Could not fetch device timezone, using default: $e');
+      }
 
-    final List<DarwinNotificationCategory> darwinNotificationCategories = <DarwinNotificationCategory>[
-      DarwinNotificationCategory(
-        'high_priority_task_actions',
-        actions: <DarwinNotificationAction>[
-          DarwinNotificationAction.plain(
-            'mark_completed',
-            'Mark Completed',
-            options: <DarwinNotificationActionOption>{
-              DarwinNotificationActionOption.destructive,
-            },
-          ),
-        ],
-        options: <DarwinNotificationCategoryOption>{
-          DarwinNotificationCategoryOption.hiddenPreviewShowTitle,
-        },
-      ),
-    ];
+      const AndroidInitializationSettings initializationSettingsAndroid =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    final DarwinInitializationSettings initializationSettingsDarwin = DarwinInitializationSettings(
-      requestAlertPermission: false,
-      requestBadgePermission: false,
-      requestSoundPermission: false,
-      notificationCategories: darwinNotificationCategories,
-    );
+      final List<DarwinNotificationCategory> darwinNotificationCategories = <DarwinNotificationCategory>[
+        DarwinNotificationCategory(
+          'high_priority_task_actions',
+          actions: <DarwinNotificationAction>[
+            DarwinNotificationAction.plain(
+              'mark_completed',
+              'Mark Completed',
+              options: <DarwinNotificationActionOption>{
+                DarwinNotificationActionOption.destructive,
+              },
+            ),
+          ],
+          options: <DarwinNotificationCategoryOption>{
+            DarwinNotificationCategoryOption.hiddenPreviewShowTitle,
+          },
+        ),
+      ];
 
-    final InitializationSettings initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-      iOS: initializationSettingsDarwin,
-      macOS: initializationSettingsDarwin,
-    );
+      final DarwinInitializationSettings initializationSettingsDarwin = DarwinInitializationSettings(
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
+        notificationCategories: darwinNotificationCategories,
+      );
 
-    await flutterLocalNotificationsPlugin.initialize(
-      settings: initializationSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) async {
-        final taskId = response.payload;
-        if (response.actionId == 'mark_completed') {
-          if (taskId != null && taskId.isNotEmpty) {
-            final db = DatabaseService();
-            await db.init();
-            final nextTask = await db.markTaskCompletedById(taskId);
-            await cancelTaskNotification(taskId);
-            taskCompletedFromNotification.value = taskId;
-            if (nextTask != null && nextTask.priority == TaskPriority.high && nextTask.scheduledTime != null) {
-              await scheduleTaskNotification(nextTask);
+      final InitializationSettings initializationSettings = InitializationSettings(
+        android: initializationSettingsAndroid,
+        iOS: initializationSettingsDarwin,
+        macOS: initializationSettingsDarwin,
+      );
+
+      await flutterLocalNotificationsPlugin.initialize(
+        settings: initializationSettings,
+        onDidReceiveNotificationResponse: (NotificationResponse response) async {
+          final taskId = response.payload;
+          if (response.actionId == 'mark_completed') {
+            if (taskId != null && taskId.isNotEmpty) {
+              final db = DatabaseService();
+              await db.init();
+              final nextTask = await db.markTaskCompletedById(taskId);
+              await cancelTaskNotification(taskId);
+              taskCompletedFromNotification.value = taskId;
+              if (nextTask != null && nextTask.priority == TaskPriority.high && nextTask.scheduledTime != null) {
+                await scheduleTaskNotification(nextTask);
+              }
+            }
+          } else {
+            // User clicked the notification body
+            if (taskId != null && taskId.isNotEmpty) {
+              selectedTaskIdFromNotification.value = taskId;
             }
           }
-        } else {
-          // User clicked the notification body
-          if (taskId != null && taskId.isNotEmpty) {
-            selectedTaskIdFromNotification.value = taskId;
-          }
-        }
-      },
-      onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
-    );
+        },
+        onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
+      );
 
-    _isInitialized = true;
+      _isInitialized = true;
+    } catch (e) {
+      debugPrint('NotificationService initialization failed gracefully: $e');
+    }
   }
 
   Future<bool> requestPermissions() async {
@@ -265,7 +273,7 @@ class NotificationService {
       enableVibration: true,
       playSound: true,
       onlyAlertOnce: true,
-      icon: 'ic_notification',
+      icon: '@mipmap/ic_launcher',
       category: AndroidNotificationCategory.reminder,
       visibility: NotificationVisibility.public,
       actions: <AndroidNotificationAction>[

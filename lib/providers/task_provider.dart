@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:home_widget/home_widget.dart';
@@ -81,15 +81,20 @@ class TaskProvider with ChangeNotifier {
     );
 
     await _db.init();
-    await _notifications.init();
 
-    // Listen for notification action triggers (e.g. Mark Completed from notification shade)
-    NotificationService.taskCompletedFromNotification.removeListener(_onNotificationTaskCompleted);
-    NotificationService.taskCompletedFromNotification.addListener(_onNotificationTaskCompleted);
+    try {
+      await _notifications.init();
 
-    // Listen for notification body clicks to navigate / focus specific task
-    NotificationService.selectedTaskIdFromNotification.removeListener(_onNotificationTaskSelected);
-    NotificationService.selectedTaskIdFromNotification.addListener(_onNotificationTaskSelected);
+      // Listen for notification action triggers (e.g. Mark Completed from notification shade)
+      NotificationService.taskCompletedFromNotification.removeListener(_onNotificationTaskCompleted);
+      NotificationService.taskCompletedFromNotification.addListener(_onNotificationTaskCompleted);
+
+      // Listen for notification body clicks to navigate / focus specific task
+      NotificationService.selectedTaskIdFromNotification.removeListener(_onNotificationTaskSelected);
+      NotificationService.selectedTaskIdFromNotification.addListener(_onNotificationTaskSelected);
+    } catch (e) {
+      debugPrint('Notification initialization warning: $e');
+    }
 
     _tasks = _db.getTasks();
     _categories = _db.getCategories();
@@ -103,10 +108,14 @@ class TaskProvider with ChangeNotifier {
 
     // Ensure all high priority tasks have active/scheduled notifications and others are cleared
     for (final task in _tasks) {
-      if (task.priority == TaskPriority.high && !task.isCompleted && task.scheduledTime != null) {
-        await _notifications.scheduleTaskNotification(task);
-      } else {
-        await _notifications.cancelTaskNotification(task.id);
+      try {
+        if (task.priority == TaskPriority.high && !task.isCompleted && task.scheduledTime != null) {
+          await _notifications.scheduleTaskNotification(task);
+        } else {
+          await _notifications.cancelTaskNotification(task.id);
+        }
+      } catch (e) {
+        debugPrint('Task notification setup error for ${task.id}: $e');
       }
     }
 
