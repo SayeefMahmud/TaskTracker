@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The notification icon is only ever named by a string from Dart, so R8's
+     resource shrinker cannot see it referenced and would strip it. A missing
+     icon makes flutter_local_notifications reject every notification with
+     "invalid_icon", so keep the drawables. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/*,@mipmap/*" />

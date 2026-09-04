@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../models/task.dart';
 import '../providers/task_provider.dart';
+import '../services/notification_service.dart';
 import '../theme/doto_theme.dart';
 import '../widgets/priority_chip.dart';
 
@@ -1067,37 +1068,64 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
                         final targetScheduledTime = _effectiveScheduledDateTime;
                         final provider = Provider.of<TaskProvider>(context, listen: false);
+                        final navigator = Navigator.of(context);
+                        final messenger = ScaffoldMessenger.of(context);
 
-                        if (isEditMode) {
-                          final task = widget.taskToEdit!;
-                          task.title = _titleController.text.trim();
-                          task.description = _descController.text.trim().isEmpty
-                              ? null
-                              : _descController.text.trim();
-                          task.scheduledTime = targetScheduledTime;
-                          task.priority = _priority;
-                          task.categoryIds = [_selectedCategory];
-                          task.recurrence = _recurrence;
-                          task.subtasks = _subtasks;
-                          await provider.updateTask(task);
-                        } else {
-                          final newTask = Task(
-                            title: _titleController.text.trim(),
-                            description: _descController.text.trim().isEmpty
+                        // Clear any earlier failure so the banner below only
+                        // ever reports what this save ran into.
+                        NotificationService.lastError.value = null;
+
+                        Object? saveError;
+                        try {
+                          if (isEditMode) {
+                            final task = widget.taskToEdit!;
+                            task.title = _titleController.text.trim();
+                            task.description = _descController.text.trim().isEmpty
                                 ? null
-                                : _descController.text.trim(),
-                            scheduledTime: targetScheduledTime,
-                            priority: _priority,
-                            categoryIds: [_selectedCategory],
-                            recurrence: _recurrence,
-                            subtasks: _subtasks,
-                          );
-                          await provider.addTask(newTask);
-                          provider.setSelectedCategory('all');
+                                : _descController.text.trim();
+                            task.scheduledTime = targetScheduledTime;
+                            task.priority = _priority;
+                            task.categoryIds = [_selectedCategory];
+                            task.recurrence = _recurrence;
+                            task.subtasks = _subtasks;
+                            await provider.updateTask(task);
+                          } else {
+                            final newTask = Task(
+                              title: _titleController.text.trim(),
+                              description: _descController.text.trim().isEmpty
+                                  ? null
+                                  : _descController.text.trim(),
+                              scheduledTime: targetScheduledTime,
+                              priority: _priority,
+                              categoryIds: [_selectedCategory],
+                              recurrence: _recurrence,
+                              subtasks: _subtasks,
+                            );
+                            await provider.addTask(newTask);
+                            provider.setSelectedCategory('all');
+                          }
+                        } catch (e) {
+                          // The task is already persisted by this point; a
+                          // failure here is in the reminder or widget layer and
+                          // must not strand the user on this screen.
+                          saveError = e;
+                          debugPrint('Save task error: $e');
                         }
 
-                        if (context.mounted) {
-                          Navigator.pop(context);
+                        // Always leave the screen — the save has happened.
+                        if (navigator.mounted) {
+                          navigator.pop();
+                        }
+
+                        final reminderError =
+                            saveError?.toString() ?? NotificationService.lastError.value;
+                        if (reminderError != null) {
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Text('Task saved, but the reminder could not be set: $reminderError'),
+                              duration: const Duration(seconds: 6),
+                            ),
+                          );
                         }
                       },
                       child: AnimatedContainer(

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:isolate';
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz;
@@ -53,7 +54,7 @@ void callbackDispatcher() {
 
       if (todayTasks.isNotEmpty) {
         final notificationsPlugin = FlutterLocalNotificationsPlugin();
-        const androidInit = AndroidInitializationSettings('@drawable/ic_notification');
+        const androidInit = AndroidInitializationSettings('ic_notification');
         const iosInit = DarwinInitializationSettings();
         const initSettings = InitializationSettings(
           android: androidInit, 
@@ -72,7 +73,7 @@ void callbackDispatcher() {
                 'daily_summary_channel',
                 'Daily Summary',
                 importance: Importance.high,
-                icon: '@drawable/ic_notification',
+                icon: 'ic_notification',
               ),
               iOS: DarwinNotificationDetails(),
               macOS: DarwinNotificationDetails(),
@@ -100,6 +101,11 @@ class NotificationService {
   /// ValueNotifier to signal user tapped notification body to navigate/focus task
   static final ValueNotifier<String?> selectedTaskIdFromNotification = ValueNotifier<String?>(null);
 
+  /// Why the last notification could not be posted or scheduled, or null when
+  /// the most recent attempt succeeded. Surfaced in Settings so a reminder the
+  /// OS silently rejected is visible instead of only reaching the debug log.
+  static final ValueNotifier<String?> lastError = ValueNotifier<String?>(null);
+
   bool _isInitialized = false;
 
   int _getNotificationId(String taskId) {
@@ -124,7 +130,7 @@ class NotificationService {
       }
 
       const AndroidInitializationSettings initializationSettingsAndroid =
-          AndroidInitializationSettings('@drawable/ic_notification');
+          AndroidInitializationSettings('ic_notification');
 
       final List<DarwinNotificationCategory> darwinNotificationCategories = <DarwinNotificationCategory>[
         DarwinNotificationCategory(
@@ -184,7 +190,7 @@ class NotificationService {
 
       _isInitialized = true;
     } catch (e) {
-      debugPrint('NotificationService initialization failed gracefully: $e');
+      _recordFailure('initialize', e);
     }
   }
 
@@ -254,7 +260,19 @@ class NotificationService {
     return scheduled.difference(now);
   }
 
+  /// Schedules (or immediately posts) the reminder for [task].
+  ///
+  /// Never throws: a reminder the OS rejects is recorded in [lastError], not
+  /// propagated, so saving a task can never be derailed by the alarm subsystem.
   Future<void> scheduleTaskNotification(Task task) async {
+    try {
+      await _scheduleTaskNotification(task);
+    } catch (e) {
+      _recordFailure('schedule', e);
+    }
+  }
+
+  Future<void> _scheduleTaskNotification(Task task) async {
     if (task.isCompleted || task.scheduledTime == null) {
       await cancelTaskNotification(task.id);
       return;
@@ -297,7 +315,7 @@ class NotificationService {
           enableVibration: true,
           playSound: true,
           onlyAlertOnce: true,
-          icon: '@drawable/ic_notification',
+          icon: 'ic_notification',
           category: AndroidNotificationCategory.reminder,
           visibility: NotificationVisibility.public,
           actions: <AndroidNotificationAction>[
@@ -331,7 +349,7 @@ class NotificationService {
           enableVibration: true,
           playSound: true,
           onlyAlertOnce: true,
-          icon: '@drawable/ic_notification',
+          icon: 'ic_notification',
           category: AndroidNotificationCategory.reminder,
           visibility: NotificationVisibility.public,
           actions: <AndroidNotificationAction>[
@@ -367,7 +385,7 @@ class NotificationService {
           enableVibration: true,
           playSound: true,
           onlyAlertOnce: true,
-          icon: '@drawable/ic_notification',
+          icon: 'ic_notification',
           category: AndroidNotificationCategory.reminder,
           visibility: NotificationVisibility.public,
           actions: <AndroidNotificationAction>[
@@ -404,53 +422,208 @@ class NotificationService {
     final nowTz = tz.TZDateTime.now(tz.local);
 
     if (scheduledDate.isAfter(nowTz)) {
-      try {
-        await flutterLocalNotificationsPlugin.zonedSchedule(
-          id: notifId,
-          title: task.title,
-          body: metaBody,
-          scheduledDate: scheduledDate,
-          notificationDetails: platformChannelSpecifics,
-          payload: task.id,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        );
-      } catch (e) {
-        debugPrint('Exact alarm scheduling failed/not allowed: $e');
-        final checkNow = tz.TZDateTime.now(tz.local);
-        if (!scheduledDate.isAfter(checkNow)) {
-          await flutterLocalNotificationsPlugin.show(
-            id: notifId,
-            title: task.title,
+      // Android 12+ refuses exact alarms unless the user granted "Alarms &
+      // reminders", so ask before scheduling rather than letting the plugin
+      // throw. Each attempt is isolated: a refused alarm must never take the
+      // caller down with it.
+      final canBeExact = await canScheduleExactAlarms();
+      final mode = canBeExact
+          ? AndroidScheduleMode.exactAllowWhileIdle
+          : AndroidScheduleMode.inexactAllowWhileIdle;
+
+      if (await _tryZonedSchedule(
+        notifId: notifId,
+        task: task,
+        body: metaBody,
+        details: platformChannelSpecifics,
+        scheduledDate: scheduledDate,
+        mode: mode,
+      )) {
+        return;
+      }
+
+      // The exact alarm was still rejected (permission revoked mid-flight, or
+      // an OEM restriction). A late reminder beats no reminder.
+      if (canBeExact &&
+          await _tryZonedSchedule(
+            notifId: notifId,
+            task: task,
             body: metaBody,
-            notificationDetails: platformChannelSpecifics,
-            payload: task.id,
-          );
-        } else {
-          await flutterLocalNotificationsPlugin.zonedSchedule(
-            id: notifId,
-            title: task.title,
-            body: metaBody,
+            details: platformChannelSpecifics,
             scheduledDate: scheduledDate,
-            notificationDetails: platformChannelSpecifics,
-            payload: task.id,
-            androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-          );
-        }
+            mode: AndroidScheduleMode.inexactAllowWhileIdle,
+          )) {
+        return;
+      }
+
+      // Scheduling is unavailable entirely; if the moment has arrived while we
+      // were retrying, fall through to showing it now.
+      if (!scheduledDate.isAfter(tz.TZDateTime.now(tz.local))) {
+        await _tryShow(
+          notifId: notifId,
+          task: task,
+          body: metaBody,
+          details: platformChannelSpecifics,
+        );
       }
     } else {
       // Designated time has already passed / reached and task is still pending
+      await _tryShow(
+        notifId: notifId,
+        task: task,
+        body: metaBody,
+        details: platformChannelSpecifics,
+      );
+    }
+  }
+
+  Future<bool> _tryZonedSchedule({
+    required int notifId,
+    required Task task,
+    required String body,
+    required NotificationDetails details,
+    required tz.TZDateTime scheduledDate,
+    required AndroidScheduleMode mode,
+  }) async {
+    try {
+      await flutterLocalNotificationsPlugin.zonedSchedule(
+        id: notifId,
+        title: task.title,
+        body: body,
+        scheduledDate: scheduledDate,
+        notificationDetails: details,
+        payload: task.id,
+        androidScheduleMode: mode,
+      );
+      _recordSuccess();
+      return true;
+    } catch (e) {
+      _recordFailure('zonedSchedule (${mode.name})', e);
+      return false;
+    }
+  }
+
+  Future<bool> _tryShow({
+    required int notifId,
+    required Task task,
+    required String body,
+    required NotificationDetails details,
+  }) async {
+    try {
       await flutterLocalNotificationsPlugin.show(
         id: notifId,
         title: task.title,
-        body: metaBody,
-        notificationDetails: platformChannelSpecifics,
+        body: body,
+        notificationDetails: details,
         payload: task.id,
       );
+      _recordSuccess();
+      return true;
+    } catch (e) {
+      _recordFailure('show', e);
+      return false;
     }
   }
 
   Future<void> cancelTaskNotification(String taskId) async {
     final notifId = _getNotificationId(taskId);
-    await flutterLocalNotificationsPlugin.cancel(id: notifId);
+    try {
+      await flutterLocalNotificationsPlugin.cancel(id: notifId);
+    } catch (e) {
+      _recordFailure('cancel', e);
+    }
+  }
+
+  /// Whether the OS currently lets us set exact alarms. Android 12+ gates this
+  /// behind the "Alarms & reminders" special access screen; everywhere else
+  /// exact scheduling is always available.
+  Future<bool> canScheduleExactAlarms() async {
+    if (kIsWeb || !Platform.isAndroid) return true;
+    try {
+      final android = flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      return await android?.canScheduleExactNotifications() ?? true;
+    } catch (e) {
+      debugPrint('canScheduleExactNotifications failed: $e');
+      return false;
+    }
+  }
+
+  Future<bool> areNotificationsEnabled() async {
+    if (kIsWeb || !Platform.isAndroid) return true;
+    try {
+      final android = flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      return await android?.areNotificationsEnabled() ?? true;
+    } catch (e) {
+      debugPrint('areNotificationsEnabled failed: $e');
+      return false;
+    }
+  }
+
+  Future<int> pendingNotificationCount() async {
+    try {
+      final pending =
+          await flutterLocalNotificationsPlugin.pendingNotificationRequests();
+      return pending.length;
+    } catch (e) {
+      debugPrint('pendingNotificationRequests failed: $e');
+      return -1;
+    }
+  }
+
+  /// Posts a notification immediately on the medium-priority channel, so the
+  /// delivery path can be verified without waiting for a scheduled task.
+  Future<String?> sendTestNotification() async {
+    if (!_isInitialized) {
+      await init();
+    }
+    try {
+      await flutterLocalNotificationsPlugin.show(
+        id: 9999,
+        title: 'DoTo reminders are working',
+        body: 'Test · this is what a task reminder looks like.',
+        notificationDetails: NotificationDetails(
+          android: AndroidNotificationDetails(
+            'doto_medium_priority_v2',
+            'Medium Priority Tasks',
+            channelDescription: 'Alerts for medium priority scheduled tasks',
+            importance: Importance.high,
+            priority: Priority.high,
+            color: DotoSemantic.accent,
+            icon: 'ic_notification',
+            visibility: NotificationVisibility.public,
+          ),
+          iOS: const DarwinNotificationDetails(),
+          macOS: const DarwinNotificationDetails(),
+        ),
+      );
+      _recordSuccess();
+      return null;
+    } catch (e) {
+      _recordFailure('test show', e);
+      return _describe(e);
+    }
+  }
+
+  void _recordSuccess() {
+    if (lastError.value != null) {
+      lastError.value = null;
+    }
+  }
+
+  void _recordFailure(String stage, Object error) {
+    final message = '$stage: ${_describe(error)}';
+    debugPrint('Notification $message');
+    lastError.value = message;
+  }
+
+  String _describe(Object error) {
+    if (error is PlatformException) {
+      return '[${error.code}] ${error.message ?? ''}'.trim();
+    }
+    return error.toString();
   }
 }
