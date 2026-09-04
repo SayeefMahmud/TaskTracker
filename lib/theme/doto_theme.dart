@@ -20,6 +20,7 @@ class DotoSemantic {
 
   static const success = Color(0xFF57A11F); // streaks, completed progress, hero bar
   static const destructive = Color(0xFFC25E3D);
+  static const accent = Color(0xFF00A9DC); // fixed brand accent for chrome the OS renders outside the app theme (e.g. notifications)
 }
 
 // ---------------------------------------------------------------- theme roles

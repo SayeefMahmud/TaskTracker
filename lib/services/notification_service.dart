@@ -267,6 +267,13 @@ class NotificationService {
     final AndroidNotificationDetails androidPlatformChannelSpecifics;
     final String priorityLabel;
 
+    final totalSubtasks = task.subtasks.length;
+    final completedSubtasks = task.subtasks.where((s) => s.isCompleted).length;
+    final rawCategory = task.categoryIds.isNotEmpty ? task.categoryIds.first : 'Work';
+    final primaryCategory = rawCategory.isEmpty
+        ? rawCategory
+        : '${rawCategory[0].toUpperCase()}${rawCategory.substring(1)}';
+
     switch (task.priority) {
       case TaskPriority.high:
         priorityLabel = 'High Priority';
@@ -281,6 +288,9 @@ class NotificationService {
           additionalFlags: Int32List.fromList([32, 2]),
           color: DotoSemantic.priorityHigh,
           ledColor: DotoSemantic.priorityHigh,
+          showProgress: totalSubtasks > 0,
+          maxProgress: totalSubtasks,
+          progress: completedSubtasks,
           ledOnMs: 1000,
           ledOffMs: 500,
           enableLights: true,
@@ -312,6 +322,9 @@ class NotificationService {
           autoCancel: true,
           color: DotoSemantic.priorityMedium,
           ledColor: DotoSemantic.priorityMedium,
+          showProgress: totalSubtasks > 0,
+          maxProgress: totalSubtasks,
+          progress: completedSubtasks,
           ledOnMs: 1000,
           ledOffMs: 500,
           enableLights: true,
@@ -341,8 +354,13 @@ class NotificationService {
           priority: Priority.defaultPriority,
           ongoing: false,
           autoCancel: true,
-          color: DotoSemantic.priorityLow,
+          // Quiet Minimal: no priority color wash — action buttons tint with
+          // the app accent instead, the LED alone still carries the priority color.
+          color: DotoSemantic.accent,
           ledColor: DotoSemantic.priorityLow,
+          showProgress: totalSubtasks > 0,
+          maxProgress: totalSubtasks,
+          progress: completedSubtasks,
           ledOnMs: 1000,
           ledOffMs: 500,
           enableLights: true,
@@ -363,6 +381,8 @@ class NotificationService {
         );
         break;
     }
+
+    final metaBody = '$primaryCategory · $priorityLabel';
 
     final iOSPlatformChannelSpecifics = DarwinNotificationDetails(
       presentAlert: true,
@@ -388,7 +408,7 @@ class NotificationService {
         await flutterLocalNotificationsPlugin.zonedSchedule(
           id: notifId,
           title: task.title,
-          body: null,
+          body: metaBody,
           scheduledDate: scheduledDate,
           notificationDetails: platformChannelSpecifics,
           payload: task.id,
@@ -401,7 +421,7 @@ class NotificationService {
           await flutterLocalNotificationsPlugin.show(
             id: notifId,
             title: task.title,
-            body: null,
+            body: metaBody,
             notificationDetails: platformChannelSpecifics,
             payload: task.id,
           );
@@ -409,7 +429,7 @@ class NotificationService {
           await flutterLocalNotificationsPlugin.zonedSchedule(
             id: notifId,
             title: task.title,
-            body: null,
+            body: metaBody,
             scheduledDate: scheduledDate,
             notificationDetails: platformChannelSpecifics,
             payload: task.id,
@@ -422,7 +442,7 @@ class NotificationService {
       await flutterLocalNotificationsPlugin.show(
         id: notifId,
         title: task.title,
-        body: null,
+        body: metaBody,
         notificationDetails: platformChannelSpecifics,
         payload: task.id,
       );
