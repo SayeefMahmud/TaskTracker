@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108" role="img" aria-label="DoTo">
+  <title>DoTo — legacy launcher icon (API 24–25), transparent, artwork at 89% of the canvas</title>
+  <defs>
+    <linearGradient id="doto-legacy" x1="14" y1="98" x2="90" y2="22" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00A9DC"/>
+      <stop offset="1" stop-color="#004081"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(54 54) scale(1.0435) translate(-60 -52)">
+    <rect x="30" y="6" width="76" height="76" rx="24" fill="#004081" opacity="0.14"/>
+    <rect x="22" y="14" width="76" height="76" rx="24" fill="#004081" opacity="0.30"/>
+    <rect x="14" y="22" width="76" height="76" rx="24" fill="url(#doto-legacy)"/>
+    <path d="M36 61 L49 74 L74 46" fill="none" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

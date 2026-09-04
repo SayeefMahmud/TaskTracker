@@ -53,7 +53,7 @@ void callbackDispatcher() {
 
       if (todayTasks.isNotEmpty) {
         final notificationsPlugin = FlutterLocalNotificationsPlugin();
-        const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+        const androidInit = AndroidInitializationSettings('@drawable/ic_notification');
         const iosInit = DarwinInitializationSettings();
         const initSettings = InitializationSettings(
           android: androidInit, 
@@ -72,7 +72,7 @@ void callbackDispatcher() {
                 'daily_summary_channel',
                 'Daily Summary',
                 importance: Importance.high,
-                icon: '@mipmap/ic_launcher',
+                icon: '@drawable/ic_notification',
               ),
               iOS: DarwinNotificationDetails(),
               macOS: DarwinNotificationDetails(),
@@ -124,7 +124,7 @@ class NotificationService {
       }
 
       const AndroidInitializationSettings initializationSettingsAndroid =
-          AndroidInitializationSettings('@mipmap/ic_launcher');
+          AndroidInitializationSettings('@drawable/ic_notification');
 
       final List<DarwinNotificationCategory> darwinNotificationCategories = <DarwinNotificationCategory>[
         DarwinNotificationCategory(
@@ -297,7 +297,7 @@ class NotificationService {
           enableVibration: true,
           playSound: true,
           onlyAlertOnce: true,
-          icon: '@mipmap/ic_launcher',
+          icon: '@drawable/ic_notification',
           category: AndroidNotificationCategory.reminder,
           visibility: NotificationVisibility.public,
           actions: <AndroidNotificationAction>[
@@ -331,7 +331,7 @@ class NotificationService {
           enableVibration: true,
           playSound: true,
           onlyAlertOnce: true,
-          icon: '@mipmap/ic_launcher',
+          icon: '@drawable/ic_notification',
           category: AndroidNotificationCategory.reminder,
           visibility: NotificationVisibility.public,
           actions: <AndroidNotificationAction>[
@@ -367,7 +367,7 @@ class NotificationService {
           enableVibration: true,
           playSound: true,
           onlyAlertOnce: true,
-          icon: '@mipmap/ic_launcher',
+          icon: '@drawable/ic_notification',
           category: AndroidNotificationCategory.reminder,
           visibility: NotificationVisibility.public,
           actions: <AndroidNotificationAction>[

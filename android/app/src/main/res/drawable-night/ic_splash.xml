@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- DoTo launch-screen mark, dark theme. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="132dp"
+    android:height="132dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.10"
+        android:pathData="M54,6 H82 A24,24 0 0 1 106,30 V58 A24,24 0 0 1 82,82 H54 A24,24 0 0 1 30,58 V30 A24,24 0 0 1 54,6 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.20"
+        android:pathData="M46,14 H74 A24,24 0 0 1 98,38 V66 A24,24 0 0 1 74,90 H46 A24,24 0 0 1 22,66 V38 A24,24 0 0 1 46,14 Z"/>
+    <path android:pathData="M38,22 H66 A24,24 0 0 1 90,46 V74 A24,24 0 0 1 66,98 H38 A24,24 0 0 1 14,74 V46 A24,24 0 0 1 38,22 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="14" android:startY="98"
+                android:endX="90" android:endY="22"
+                android:startColor="#FF5FD3F5"
+                android:endColor="#FF00A9DC"/>
+        </aapt:attr>
+    </path>
+    <path
+        android:pathData="M36,61 L49,74 L74,46"
+        android:strokeColor="#0B1219"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+</vector>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="DoTo">
+  <title>DoTo — Layered Check, flat single colour</title>
+  <!-- One flat colour; the check is real transparency, not a white stroke, so the
+       platform can tint or alpha-mask the whole glyph. The two rear layers are
+       drawn as strokes and the front tile covers their inner halves, which keeps
+       the stack readable without any boolean geometry.
+       Recolour by swapping the three currentColor references or setting `color`. -->
+  <path fill="none" stroke="#FFFFFF" stroke-opacity="0.30" stroke-width="5"
+        d="M54,6 H82 A24,24 0 0 1 106,30 V58 A24,24 0 0 1 82,82 H54 A24,24 0 0 1 30,58 V30 A24,24 0 0 1 54,6 Z"/>
+  <path fill="none" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="6"
+        d="M46,14 H74 A24,24 0 0 1 98,38 V66 A24,24 0 0 1 74,90 H46 A24,24 0 0 1 22,66 V38 A24,24 0 0 1 46,14 Z"/>
+  <path fill="#FFFFFF" fill-rule="evenodd"
+        d="M38,22 H66 A24,24 0 0 1 90,46 V74 A24,24 0 0 1 66,98 H38 A24,24 0 0 1 14,74 V46 A24,24 0 0 1 38,22 Z
+           M32.818,64.182 L45.818,77.182 A4.5,4.5 0 0 0 52.357,76.997 L77.357,48.997 A4.5,4.5 0 0 0 70.643,43.003
+           L48.815,67.454 L39.182,57.818 A4.5,4.5 0 0 0 32.818,64.182 Z"/>
+</svg>

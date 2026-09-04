@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- DoTo themed-icon layer (Android 13+). One flat colour the system re-tints;
+     the check is a hole, not a white stroke. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="60"
+        android:pivotY="52"
+        android:scaleX="0.7391"
+        android:scaleY="0.7391"
+        android:translateX="-6"
+        android:translateY="2">
+
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeAlpha="0.30"
+            android:strokeWidth="5"
+            android:pathData="M54,6 H82 A24,24 0 0 1 106,30 V58 A24,24 0 0 1 82,82 H54 A24,24 0 0 1 30,58 V30 A24,24 0 0 1 54,6 Z"/>
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeAlpha="0.55"
+            android:strokeWidth="6"
+            android:pathData="M46,14 H74 A24,24 0 0 1 98,38 V66 A24,24 0 0 1 74,90 H46 A24,24 0 0 1 22,66 V38 A24,24 0 0 1 46,14 Z"/>
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M38,22 H66 A24,24 0 0 1 90,46 V74 A24,24 0 0 1 66,98 H38 A24,24 0 0 1 14,74 V46 A24,24 0 0 1 38,22 Z M32.818,64.182 L45.818,77.182 A4.5,4.5 0 0 0 52.357,76.997 L77.357,48.997 A4.5,4.5 0 0 0 70.643,43.003 L48.815,67.454 L39.182,57.818 A4.5,4.5 0 0 0 32.818,64.182 Z"/>
+    </group>
+</vector>

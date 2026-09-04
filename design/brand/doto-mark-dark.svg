@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="DoTo">
+  <title>DoTo — Layered Check, dark surfaces</title>
+  <defs>
+    <linearGradient id="doto-front-dark" x1="14" y1="98" x2="90" y2="22" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5FD3F5"/>
+      <stop offset="1" stop-color="#00A9DC"/>
+    </linearGradient>
+  </defs>
+  <rect x="30" y="6" width="76" height="76" rx="24" fill="#FFFFFF" opacity="0.10"/>
+  <rect x="22" y="14" width="76" height="76" rx="24" fill="#FFFFFF" opacity="0.20"/>
+  <rect x="14" y="22" width="76" height="76" rx="24" fill="url(#doto-front-dark)"/>
+  <path d="M36 61 L49 74 L74 46" fill="none" stroke="#0B1219" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

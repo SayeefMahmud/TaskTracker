@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- DoTo adaptive icon foreground. Gradient fills need API 24+; adaptive icons are
+     API 26+, so this is always safe where it is used. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="60"
+        android:pivotY="52"
+        android:scaleX="0.7391"
+        android:scaleY="0.7391"
+        android:translateX="-6"
+        android:translateY="2">
+
+        <path
+            android:fillColor="#004081"
+            android:fillAlpha="0.14"
+            android:pathData="M54,6 H82 A24,24 0 0 1 106,30 V58 A24,24 0 0 1 82,82 H54 A24,24 0 0 1 30,58 V30 A24,24 0 0 1 54,6 Z"/>
+        <path
+            android:fillColor="#004081"
+            android:fillAlpha="0.30"
+            android:pathData="M46,14 H74 A24,24 0 0 1 98,38 V66 A24,24 0 0 1 74,90 H46 A24,24 0 0 1 22,66 V38 A24,24 0 0 1 46,14 Z"/>
+        <path android:pathData="M38,22 H66 A24,24 0 0 1 90,46 V74 A24,24 0 0 1 66,98 H38 A24,24 0 0 1 14,74 V46 A24,24 0 0 1 38,22 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:type="linear"
+                    android:startX="14"
+                    android:startY="98"
+                    android:endX="90"
+                    android:endY="22"
+                    android:startColor="#FF00A9DC"
+                    android:endColor="#FF004081"/>
+            </aapt:attr>
+        </path>
+        <path
+            android:pathData="M36,61 L49,74 L74,46"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="8"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"/>
+    </group>
+</vector>
