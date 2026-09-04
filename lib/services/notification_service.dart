@@ -26,7 +26,7 @@ void notificationTapBackground(NotificationResponse notificationResponse) async 
         final notifications = NotificationService();
         await notifications.init();
         await notifications.cancelTaskNotification(taskId);
-        if (nextTask != null && nextTask.priority == TaskPriority.high && nextTask.scheduledTime != null) {
+        if (nextTask != null && nextTask.scheduledTime != null) {
           await notifications.scheduleTaskNotification(nextTask);
         }
       }
@@ -114,7 +114,11 @@ class NotificationService {
       try {
         final timezoneInfo = await FlutterTimezone.getLocalTimezone();
         final timeZoneName = timezoneInfo.identifier;
-        tz.setLocalLocation(tz.getLocation(timeZoneName));
+        if (timeZoneName == 'UTC' || timeZoneName == 'Etc/UTC') {
+          tz.setLocalLocation(tz.UTC);
+        } else {
+          tz.setLocalLocation(tz.getLocation(timeZoneName));
+        }
       } catch (e) {
         debugPrint('Could not fetch device timezone, using default: $e');
       }
@@ -164,7 +168,7 @@ class NotificationService {
               final nextTask = await db.markTaskCompletedById(taskId);
               await cancelTaskNotification(taskId);
               taskCompletedFromNotification.value = taskId;
-              if (nextTask != null && nextTask.priority == TaskPriority.high && nextTask.scheduledTime != null) {
+              if (nextTask != null && nextTask.scheduledTime != null) {
                 await scheduleTaskNotification(nextTask);
               }
             }
@@ -251,7 +255,7 @@ class NotificationService {
   }
 
   Future<void> scheduleTaskNotification(Task task) async {
-    if (task.priority != TaskPriority.high || task.isCompleted || task.scheduledTime == null) {
+    if (task.isCompleted || task.scheduledTime == null) {
       await cancelTaskNotification(task.id);
       return;
     }
@@ -260,46 +264,112 @@ class NotificationService {
       await init();
     }
 
-    const highPriorityChannelId = 'doto_high_priority_sticky_v2';
-    const highPriorityChannelName = 'High Priority Tasks';
-    const highPriorityChannelDesc = 'Persistent alerts for high priority scheduled tasks';
+    final AndroidNotificationDetails androidPlatformChannelSpecifics;
+    final String priorityLabel;
 
-    final androidPlatformChannelSpecifics = AndroidNotificationDetails(
-      highPriorityChannelId,
-      highPriorityChannelName,
-      channelDescription: highPriorityChannelDesc,
-      importance: Importance.max,
-      priority: Priority.max,
-      ongoing: true,
-      autoCancel: false,
-      additionalFlags: Int32List.fromList([32, 2]),
-      color: DotoSemantic.priorityHigh,
-      ledColor: DotoSemantic.priorityHigh,
-      ledOnMs: 1000,
-      ledOffMs: 500,
-      enableLights: true,
-      enableVibration: true,
-      playSound: true,
-      onlyAlertOnce: true,
-      icon: '@mipmap/ic_launcher',
-      category: AndroidNotificationCategory.reminder,
-      visibility: NotificationVisibility.public,
-      actions: <AndroidNotificationAction>[
-        const AndroidNotificationAction(
-          'mark_completed',
-          'Mark Completed',
-          showsUserInterface: false,
-          cancelNotification: true,
-        ),
-      ],
-    );
+    switch (task.priority) {
+      case TaskPriority.high:
+        priorityLabel = 'High Priority';
+        androidPlatformChannelSpecifics = AndroidNotificationDetails(
+          'doto_high_priority_sticky_v2',
+          'High Priority Tasks',
+          channelDescription: 'Persistent alerts for high priority scheduled tasks',
+          importance: Importance.max,
+          priority: Priority.max,
+          ongoing: true,
+          autoCancel: false,
+          additionalFlags: Int32List.fromList([32, 2]),
+          color: DotoSemantic.priorityHigh,
+          ledColor: DotoSemantic.priorityHigh,
+          ledOnMs: 1000,
+          ledOffMs: 500,
+          enableLights: true,
+          enableVibration: true,
+          playSound: true,
+          onlyAlertOnce: true,
+          icon: '@mipmap/ic_launcher',
+          category: AndroidNotificationCategory.reminder,
+          visibility: NotificationVisibility.public,
+          actions: <AndroidNotificationAction>[
+            const AndroidNotificationAction(
+              'mark_completed',
+              'Mark Completed',
+              showsUserInterface: false,
+              cancelNotification: true,
+            ),
+          ],
+        );
+        break;
+      case TaskPriority.medium:
+        priorityLabel = 'Medium Priority';
+        androidPlatformChannelSpecifics = AndroidNotificationDetails(
+          'doto_medium_priority_v2',
+          'Medium Priority Tasks',
+          channelDescription: 'Alerts for medium priority scheduled tasks',
+          importance: Importance.high,
+          priority: Priority.high,
+          ongoing: false,
+          autoCancel: true,
+          color: DotoSemantic.priorityMedium,
+          ledColor: DotoSemantic.priorityMedium,
+          ledOnMs: 1000,
+          ledOffMs: 500,
+          enableLights: true,
+          enableVibration: true,
+          playSound: true,
+          onlyAlertOnce: true,
+          icon: '@mipmap/ic_launcher',
+          category: AndroidNotificationCategory.reminder,
+          visibility: NotificationVisibility.public,
+          actions: <AndroidNotificationAction>[
+            const AndroidNotificationAction(
+              'mark_completed',
+              'Mark Completed',
+              showsUserInterface: false,
+              cancelNotification: true,
+            ),
+          ],
+        );
+        break;
+      case TaskPriority.low:
+        priorityLabel = 'Low Priority';
+        androidPlatformChannelSpecifics = AndroidNotificationDetails(
+          'doto_low_priority_v2',
+          'Low Priority Tasks',
+          channelDescription: 'Alerts for low priority scheduled tasks',
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
+          ongoing: false,
+          autoCancel: true,
+          color: DotoSemantic.priorityLow,
+          ledColor: DotoSemantic.priorityLow,
+          ledOnMs: 1000,
+          ledOffMs: 500,
+          enableLights: true,
+          enableVibration: true,
+          playSound: true,
+          onlyAlertOnce: true,
+          icon: '@mipmap/ic_launcher',
+          category: AndroidNotificationCategory.reminder,
+          visibility: NotificationVisibility.public,
+          actions: <AndroidNotificationAction>[
+            const AndroidNotificationAction(
+              'mark_completed',
+              'Mark Completed',
+              showsUserInterface: false,
+              cancelNotification: true,
+            ),
+          ],
+        );
+        break;
+    }
 
-    final iOSPlatformChannelSpecifics = const DarwinNotificationDetails(
+    final iOSPlatformChannelSpecifics = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
-      subtitle: 'High Priority',
-      threadIdentifier: 'doto_high_priority_tasks',
+      subtitle: priorityLabel,
+      threadIdentifier: 'doto_${task.priority.name}_tasks',
       categoryIdentifier: 'high_priority_task_actions',
     );
 
@@ -311,8 +381,9 @@ class NotificationService {
 
     final notifId = _getNotificationId(task.id);
     final scheduledDate = tz.TZDateTime.from(task.scheduledTime!, tz.local);
+    final nowTz = tz.TZDateTime.now(tz.local);
 
-    if (task.scheduledTime!.isAfter(DateTime.now())) {
+    if (scheduledDate.isAfter(nowTz)) {
       try {
         await flutterLocalNotificationsPlugin.zonedSchedule(
           id: notifId,
@@ -324,19 +395,30 @@ class NotificationService {
           androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         );
       } catch (e) {
-        debugPrint('Exact alarm scheduling failed/not allowed, falling back to inexact: $e');
-        await flutterLocalNotificationsPlugin.zonedSchedule(
-          id: notifId,
-          title: task.title,
-          body: null,
-          scheduledDate: scheduledDate,
-          notificationDetails: platformChannelSpecifics,
-          payload: task.id,
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        );
+        debugPrint('Exact alarm scheduling failed/not allowed: $e');
+        final checkNow = tz.TZDateTime.now(tz.local);
+        if (!scheduledDate.isAfter(checkNow)) {
+          await flutterLocalNotificationsPlugin.show(
+            id: notifId,
+            title: task.title,
+            body: null,
+            notificationDetails: platformChannelSpecifics,
+            payload: task.id,
+          );
+        } else {
+          await flutterLocalNotificationsPlugin.zonedSchedule(
+            id: notifId,
+            title: task.title,
+            body: null,
+            scheduledDate: scheduledDate,
+            notificationDetails: platformChannelSpecifics,
+            payload: task.id,
+            androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          );
+        }
       }
     } else {
-      // Designated time has already passed / reached and task is still high-priority & pending
+      // Designated time has already passed / reached and task is still pending
       await flutterLocalNotificationsPlugin.show(
         id: notifId,
         title: task.title,

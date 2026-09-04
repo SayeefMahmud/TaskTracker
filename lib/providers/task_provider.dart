@@ -79,7 +79,7 @@ class TaskProvider with ChangeNotifier {
       onResume: () async {
         _tasks = _db.getTasks();
         for (final task in _tasks) {
-          if (task.priority == TaskPriority.high && !task.isCompleted && task.scheduledTime != null) {
+          if (!task.isCompleted && task.scheduledTime != null) {
             try {
               await _notifications.scheduleTaskNotification(task);
             } catch (_) {}
@@ -111,6 +111,7 @@ class TaskProvider with ChangeNotifier {
 
     try {
       await _notifications.init();
+      await _notifications.requestPermissions();
 
       // Listen for notification action triggers (e.g. Mark Completed from notification shade)
       NotificationService.taskCompletedFromNotification.removeListener(_onNotificationTaskCompleted);
@@ -133,10 +134,10 @@ class TaskProvider with ChangeNotifier {
       await addCategory(TaskCategory(id: 'home', name: 'Home', colorHex: 0xFFF5C842));
     }
 
-    // Ensure all high priority tasks have active/scheduled notifications and others are cleared
+    // Ensure all pending tasks with scheduled time have active/scheduled notifications and others are cleared
     for (final task in _tasks) {
       try {
-        if (task.priority == TaskPriority.high && !task.isCompleted && task.scheduledTime != null) {
+        if (!task.isCompleted && task.scheduledTime != null) {
           await _notifications.scheduleTaskNotification(task);
         } else {
           await _notifications.cancelTaskNotification(task.id);
@@ -179,7 +180,7 @@ class TaskProvider with ChangeNotifier {
     await _db.addTask(task);
     _tasks.insert(0, task);
 
-    if (task.priority == TaskPriority.high && !task.isCompleted && task.scheduledTime != null) {
+    if (!task.isCompleted && task.scheduledTime != null) {
       await _notifications.scheduleTaskNotification(task);
     }
 
@@ -195,7 +196,7 @@ class TaskProvider with ChangeNotifier {
       _tasks[index] = task;
     }
 
-    if (task.priority == TaskPriority.high && !task.isCompleted && task.scheduledTime != null) {
+    if (!task.isCompleted && task.scheduledTime != null) {
       await _notifications.scheduleTaskNotification(task);
     } else {
       await _notifications.cancelTaskNotification(task.id);
@@ -224,7 +225,7 @@ class TaskProvider with ChangeNotifier {
       final nextTask = await _db.markTaskCompletedById(task.id);
       if (nextTask != null) {
         _tasks.insert(0, nextTask);
-        if (nextTask.scheduledTime != null && nextTask.priority == TaskPriority.high) {
+        if (nextTask.scheduledTime != null) {
           await _notifications.scheduleTaskNotification(nextTask);
         }
       }
@@ -242,7 +243,7 @@ class TaskProvider with ChangeNotifier {
       }
 
       await _db.updateTask(task);
-      if (task.priority == TaskPriority.high && task.scheduledTime != null) {
+      if (task.scheduledTime != null) {
         await _notifications.scheduleTaskNotification(task);
       }
     }

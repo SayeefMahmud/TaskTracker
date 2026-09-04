@@ -149,7 +149,16 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   DateTime get _effectiveScheduledDateTime {
     if (_timingMode == 0) {
       final totalMins = _relativeTotalMinutes;
-      return DateTime.now().add(Duration(minutes: totalMins > 0 ? totalMins : 0));
+      final now = DateTime.now();
+      final cleanNow = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        now.hour,
+        now.minute,
+        now.second,
+      );
+      return cleanNow.add(Duration(minutes: totalMins > 0 ? totalMins : 0));
     } else {
       return DateTime(
         _selectedDate.year,
@@ -157,6 +166,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         _selectedDate.day,
         _selectedTime.hour,
         _selectedTime.minute,
+        0,
       );
     }
   }
